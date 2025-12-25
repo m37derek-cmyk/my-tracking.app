@@ -448,7 +448,7 @@ with tab1:
         st.markdown("##### 🌱 أعمال البر")
         cc1, cc2, cc3, cc4, cc5 = st.columns(5)
         fasting = cc1.checkbox(" صيام التطوع")
-        majlis = cc2.checkbox("مجلس علم")
+        majlis = cc2.checkbox("مجلس التدارس")
         family = cc3.checkbox("بر الأسرة")
         read = cc4.checkbox("قراءة نافعة")
         visit = cc5.checkbox("زيارة/صلة")
@@ -505,6 +505,7 @@ with tab3:
         st.area_chart(my_hist.set_index("التاريخ")['Score'], color="#009688")
         st.dataframe(my_hist, use_container_width=True)
     else: st.info("ليس لديك سجلات سابقة")
+
 
 
 
