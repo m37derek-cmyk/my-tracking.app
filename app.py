@@ -11,17 +11,22 @@ import time
 st.set_page_config(page_title="سباق الصالحين", layout="wide", page_icon="🕌")
 
 # ==========================================
-# 🔑 كلمة المرور
+# 🔑 إعدادات المجموعات وكلمات المرور
 # ==========================================
-MY_PASSWORD = "Taqwa@2025@Secret!"
+# هنا نحدد اسم كل مجموعة وكلمة السر الخاصة بها
+GROUPS_CONFIG = {
+    "مجموعة الفردوس": "Firdaws2025",  # كلمة مرور المجموعة الأولى
+    "مجموعة الريان": "Rayyan2025",    # كلمة مرور المجموعة الثانية
+    "الإدارة": "Admin123"             # (اختياري) لرؤية الكل
+}
 
 # ==========================================
-# 📋 عناوين الأعمدة (HEADERS)
+# 📋 عناوين الأعمدة (HEADERS) - تمت إضافة "المجموعة"
 # ==========================================
 EXPECTED_HEADERS = [
-    "التاريخ", "الاسم",
+    "التاريخ", "الاسم", "المجموعة", # << عمود جديد لتحديد المجموعة
     "الفجر_حالة", "الفجر_سنة",
-    "الضحى",
+    "الضحى", 
     "الظهر_حالة", "الظهر_سنة",
     "العصر_حالة",
     "المغرب_حالة", "المغرب_سنة",
@@ -36,12 +41,11 @@ EXPECTED_HEADERS = [
 # 💎 مكتبة التحفيز
 # ==========================================
 MOTIVATIONAL_QUOTES = [
-    {"text": "يُصْبِحُ عَلَى كُلِّ سُلَامَى (مفصل) مِنْ أَحَدِكُمْ صَدَقَةٌ... وَيُجْزِئُ مِنْ ذَلِكَ رَكْعَتَانِ يَرْكَعُهُمَا مِنَ الضُّحَى", "source": "حديث شريف"},
+    {"text": "يُصْبِحُ عَلَى كُلِّ سُلَامَى مِنْ أَحَدِكُمْ صَدَقَةٌ... وَيُجْزِئُ مِنْ ذَلِكَ رَكْعَتَانِ يَرْكَعُهُمَا مِنَ الضُّحَى", "source": "حديث شريف"},
     {"text": "سورة تبارك هي المانعة من عذاب القبر", "source": "حديث شريف"},
     {"text": "إِنَّ اللَّهَ وَمَلَائِكَتَهُ يُصَلُّونَ عَلَى النَّبِيِّ", "source": "الأحزاب: 56"},
-    {"text": "من قرأ سورة الكهف يوم الجمعة أضاء له من النور ما بين الجمعتين", "source": "حديث شريف"},
-    {"text": "وَسَارِعُوا إِلَىٰ مَغْفِرَةٍ مِّن رَّبِّكُمْ", "source": "آل عمران: 133"},
-    {"text": "أحب الأعمال إلى الله أدومها وإن قل", "source": "حديث شريف"}
+    {"text": "وَفِي ذَٰلِكَ فَلْيَتَنَافَسِ الْمُتَنَافِسُونَ", "source": "المطففين: 26"},
+    {"text": "يد الله مع الجماعة", "source": "حديث شريف"}
 ]
 daily_quote = random.choice(MOTIVATIONAL_QUOTES)
 
@@ -88,7 +92,7 @@ try:
         if not current_headers or current_headers != EXPECTED_HEADERS:
             sheet_data.delete_rows(1)
             sheet_data.insert_row(EXPECTED_HEADERS, 1)
-            # st.toast("✅ تم تحديث الجدول!", icon="✨")
+            st.toast("✅ تم تحديث النظام لدعم المجموعات!", icon="👥")
     except Exception as e:
         st.warning(f"ملاحظة: {e}")
 
@@ -97,23 +101,34 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# 🔒 نظام تسجيل الدخول
+# 🔒 نظام تسجيل الدخول (المعدل للمجموعات)
 # ==========================================
 def check_login():
     input_user = st.session_state["login_user"].strip()
     input_pass = st.session_state["login_pass"].strip()
-    if input_pass == MY_PASSWORD and input_user:
+    
+    found_group = None
+    
+    # البحث عن كلمة المرور في قائمة المجموعات
+    for group_name, group_pass in GROUPS_CONFIG.items():
+        if input_pass == group_pass:
+            found_group = group_name
+            break
+            
+    if found_group and input_user:
         st.session_state["authenticated"] = True
         st.session_state["user_name"] = input_user
+        st.session_state["user_group"] = found_group # حفظ اسم المجموعة
     else:
         st.session_state["authenticated"] = False
-        st.error("⛔ كلمة المرور غير صحيحة.")
+        st.error("⛔ اسم المستخدم أو كلمة المرور غير صحيحة.")
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
     st.markdown("<br><br><h2 style='text-align: center;'>🔒 تسجيل الدخول</h2>", unsafe_allow_html=True)
+    st.info("ℹ️ أدخل كلمة مرور مجموعتك الخاصة للدخول.")
     c1, c2 = st.columns(2)
     with c1: st.text_input("الاسم الكريم:", key="login_user")
     with c2: st.text_input("كلمة المرور:", type="password", key="login_pass")
@@ -138,7 +153,6 @@ def calculate_score(row):
         if p_name != 'العصر':
             if row.get(f"{p_name}_سنة") == 'نعم': score += 3
 
-    # الضحى
     if row.get('الضحى') == 'نعم': score += 5
 
     # 2. الأذكار
@@ -151,7 +165,6 @@ def calculate_score(row):
     # 3. الباقي
     if str(row.get('قيام')) not in ["0", "لا", "", "None"]: score += 8
     if str(row.get('القرآن')) not in ["0", "لا", "", "None"]: score += 8
-    
     if row.get('الصيام') == 'نعم': score += 10
     if row.get('مجلس') == 'نعم': score += 4
     if row.get('أسرة') == 'نعم': score += 4
@@ -173,9 +186,10 @@ def get_level_and_rank(total_points):
     return level, title
 
 # ==========================================
-# 📊 تجهيز البيانات
+# 📊 تجهيز البيانات (مع فلترة المجموعة)
 # ==========================================
 current_user = st.session_state["user_name"]
+current_group = st.session_state["user_group"]
 
 try:
     data = sheet_data.get_all_records()
@@ -194,41 +208,55 @@ if not full_df.empty:
         full_df['Score'] = full_df.apply(calculate_score, axis=1)
         full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
         
-        leaderboard = full_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
-        leaderboard['المستوى'] = leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[0])
-        leaderboard['اللقب'] = leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[1])
-        leaderboard.insert(0, 'الترتيب', leaderboard.index + 1)
+        # 🔥 فلترة البيانات حسب المجموعة 🔥
+        if current_group != "الإدارة":
+            # عرض بيانات مجموعتي فقط
+            group_df = full_df[full_df['المجموعة'] == current_group].copy()
+        else:
+            # الإدارة ترى الجميع
+            group_df = full_df.copy()
 
-        my_stats = leaderboard[leaderboard['الاسم'] == current_user]
-        if not my_stats.empty:
-            my_total_xp = my_stats.iloc[0]['Score']
-            my_level = my_stats.iloc[0]['المستوى']
-            my_rank = my_stats.iloc[0]['الترتيب']
+        if not group_df.empty:
+            # الترتيب العام للمجموعة
+            leaderboard = group_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
+            leaderboard['المستوى'] = leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[0])
+            leaderboard['اللقب'] = leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[1])
+            leaderboard.insert(0, 'الترتيب', leaderboard.index + 1)
 
-        curr_wk = datetime.now().isocalendar()[1]
-        curr_yr = datetime.now().year
-        weekly_df = full_df[(full_df['DateObj'].dt.isocalendar().week == curr_wk) & (full_df['DateObj'].dt.year == curr_yr)]
-        if not weekly_df.empty:
-            weekly_leaderboard = weekly_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
-            weekly_leaderboard.insert(0, 'الترتيب', weekly_leaderboard.index + 1)
-            if not weekly_leaderboard.empty:
-                weekly_champion_name = weekly_leaderboard.iloc[0]['الاسم']
-                weekly_champion_score = weekly_leaderboard.iloc[0]['Score']
+            my_stats = leaderboard[leaderboard['الاسم'] == current_user]
+            if not my_stats.empty:
+                my_total_xp = my_stats.iloc[0]['Score']
+                my_level = my_stats.iloc[0]['المستوى']
+                my_rank = my_stats.iloc[0]['الترتيب']
 
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        daily_df = full_df[full_df['التاريخ'] == today_str]
-        if not daily_df.empty:
-            daily_leaderboard = daily_df[['الاسم', 'Score']].sort_values('Score', ascending=False).reset_index(drop=True)
-            daily_leaderboard.insert(0, 'الترتيب', daily_leaderboard.index + 1)
-            if not daily_leaderboard.empty:
-                daily_champion_name = daily_leaderboard.iloc[0]['الاسم']
-                daily_champion_score = daily_leaderboard.iloc[0]['Score']
+            # الأسبوعي للمجموعة
+            curr_wk = datetime.now().isocalendar()[1]
+            curr_yr = datetime.now().year
+            weekly_df = group_df[(group_df['DateObj'].dt.isocalendar().week == curr_wk) & (group_df['DateObj'].dt.year == curr_yr)]
+            if not weekly_df.empty:
+                weekly_leaderboard = weekly_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
+                weekly_leaderboard.insert(0, 'الترتيب', weekly_leaderboard.index + 1)
+                if not weekly_leaderboard.empty:
+                    weekly_champion_name = weekly_leaderboard.iloc[0]['الاسم']
+                    weekly_champion_score = weekly_leaderboard.iloc[0]['Score']
+
+            # اليومي للمجموعة
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            daily_df = group_df[group_df['التاريخ'] == today_str]
+            if not daily_df.empty:
+                daily_leaderboard = daily_df[['الاسم', 'Score']].sort_values('Score', ascending=False).reset_index(drop=True)
+                daily_leaderboard.insert(0, 'الترتيب', daily_leaderboard.index + 1)
+                if not daily_leaderboard.empty:
+                    daily_champion_name = daily_leaderboard.iloc[0]['الاسم']
+                    daily_champion_score = daily_leaderboard.iloc[0]['Score']
 
 # ==========================================
 # 🖥️ الواجهة
 # ==========================================
 col_h1, col_h2 = st.columns([6, 1])
-with col_h1: st.title(f"مرحباً {current_user} 🌟")
+with col_h1: 
+    st.title(f"مرحباً {current_user} 🌟")
+    st.caption(f"📍 أنت في: {current_group}") # عرض اسم المجموعة
 with col_h2: 
     if st.button("🚪 خروج", type="primary"): st.session_state["authenticated"] = False; st.rerun()
 
@@ -236,18 +264,14 @@ st.markdown(f"<div style='background-color: #d4edda; color: #155724; padding: 10
 
 is_friday = datetime.today().weekday() == 4
 if is_friday:
-    st.markdown("""
-    <div style="border: 2px solid #28a745; background-color: #e6fffa; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-        <h3 style="color: #28a745; margin:0;">🕌 جمعة مباركة! لا تنس سنن اليوم 🕌</h3>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("""<div style="border: 2px solid #28a745; background-color: #e6fffa; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;"><h3 style="color: #28a745; margin:0;">🕌 جمعة مباركة! لا تنس سنن اليوم 🕌</h3></div>""", unsafe_allow_html=True)
 
 st.markdown("---")
 col_champ, col_ideas = st.columns([1, 2])
 with col_champ:
     st.markdown(f"""
     <div style="background-color: #fff3cd; border: 2px solid #ffeeba; border-radius: 10px; padding: 20px; text-align: center;">
-        <h4 style="margin:0; color: #856404;">📅 بطل الأسبوع</h4>
+        <h4 style="margin:0; color: #856404;">📅 بطل الأسبوع ({current_group})</h4>
         <h2 style="color: #856404; margin: 10px 0;">{weekly_champion_name}</h2>
         <p style="font-size: 1.1em;">{weekly_champion_score} نقطة</p>
     </div>
@@ -272,7 +296,7 @@ progress = 1 - (((my_level * 500) - my_total_xp) / 500)
 st.progress(max(0.0, min(1.0, progress)), text=f"باقي {(my_level * 500) - my_total_xp} نقطة")
 
 # --- التبويبات ---
-tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 اللوحات", "📊 سجلي"])
+tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 لوحة مجموعتي", "📊 سجلي"])
 
 with tab1:
     with st.form("entry_form"):
@@ -283,8 +307,7 @@ with tab1:
             salat_nabi = cf2.checkbox("📿 الصلاة على النبي 100 مرة (+15)")
             st.write("---")
         else:
-            kahf = False
-            salat_nabi = False
+            kahf = False; salat_nabi = False
 
         st.write("### 🕌 الصلوات")
         status_opts = ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"]
@@ -295,7 +318,7 @@ with tab1:
             fajr_sn = st.checkbox("سنة الفجر", key="fsn")
         with c_p2:
             st.markdown("**☀️ الضحى**")
-            duha = st.checkbox("ركعتا الضحى (+5)", key="duha") 
+            duha = st.checkbox("ركعتا الضحى (+5)", key="duha")
         with c_p3:
             st.write("") 
             
@@ -321,7 +344,6 @@ with tab1:
         az_m = c_az1.checkbox("أذكار الصباح")
         az_e = c_az2.checkbox("أذكار المساء")
         az_p = c_az3.checkbox("أذكار الصلاة")
-        
         with c_az4:
             st.markdown("**النوم**")
             az_s = st.checkbox("أذكار النوم")
@@ -347,9 +369,8 @@ with tab1:
                 st.error(f"⛔ مسجل مسبقاً ({day_date}).")
             else:
                 row = [
-                    day_date, current_user,
-                    fajr_st, "نعم" if fajr_sn else "لا",
-                    "نعم" if duha else "لا",
+                    day_date, current_user, current_group, # << حفظ اسم المجموعة هنا
+                    fajr_st, "نعم" if fajr_sn else "لا", "نعم" if duha else "لا",
                     dhuhr_st, "نعم" if dhuhr_sn else "لا",
                     asr_st,
                     mag_st, "نعم" if mag_sn else "لا",
@@ -362,34 +383,19 @@ with tab1:
                 ]
                 with st.spinner("جاري الحفظ..."):
                     sheet_data.append_row(row)
-                    st.success("تم!")
+                    st.success(f"تم الحفظ في {current_group}!")
                     time.sleep(1)
                     st.rerun()
 
-# ----------------------------------------------------
-# ⚠️ تم إصلاح الخطأ هنا (تحويل السطر الواحد إلى IF عادية)
-# ----------------------------------------------------
 with tab2:
     t2_1, t2_2, t2_3 = st.tabs(["🥇 العام", "📅 الأسبوعي", "🌟 اليومي"])
-    
-    with t2_1: 
-        if not leaderboard.empty:
-            st.dataframe(leaderboard[['الترتيب', 'الاسم', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True)
-        else: 
-            st.info("لا توجد بيانات حتى الآن.")
-            
-    with t2_2: 
-        if not weekly_leaderboard.empty:
-            st.dataframe(weekly_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True) 
-        else: 
-            st.info("بداية أسبوع جديدة!")
-            
+    with t2_1: st.dataframe(leaderboard[['الترتيب', 'الاسم', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True) if not leaderboard.empty else st.info("..")
+    with t2_2: st.dataframe(weekly_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True) if not weekly_leaderboard.empty else st.info("..")
     with t2_3: 
         if not daily_leaderboard.empty: 
             st.dataframe(daily_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
             st.success(f"نجم اليوم: {daily_champion_name}")
-        else: 
-            st.info("لم يسجل أحد اليوم.")
+        else: st.info("..")
 
 with tab3:
     if not full_df.empty and current_user in full_df['الاسم'].values:
