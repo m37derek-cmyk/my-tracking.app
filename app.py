@@ -145,7 +145,6 @@ MOTIVATIONAL_QUOTES = [
     {"text": "أقرب ما يكون العبد من ربه وهو ساجد", "source": "حديث شريف"},
     {"text": "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ", "source": "حديث شريف"}
 ]
-]
 daily_quote = random.choice(MOTIVATIONAL_QUOTES)
 
 WEEKLY_IDEAS = {
@@ -506,4 +505,5 @@ with tab3:
         st.area_chart(my_hist.set_index("التاريخ")['Score'], color="#009688")
         st.dataframe(my_hist, use_container_width=True)
     else: st.info("ليس لديك سجلات سابقة")
+
 
