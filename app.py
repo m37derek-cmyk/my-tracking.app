@@ -23,14 +23,10 @@ MOTIVATIONAL_QUOTES = [
     {"text": "فَاسْتَبِقُوا الْخَيْرَاتِ", "source": "البقرة: 148"},
     {"text": "أحب الأعمال إلى الله أدومها وإن قل", "source": "حديث شريف"},
     {"text": "الدال على الخير كفاعله", "source": "حديث شريف"},
-    {"text": "يد الله مع الجماعة", "source": "حديث شريف"},
-    {"text": "إِنَّمَا الْأَعْمَالُ بِالنِّيَّاتِ", "source": "حديث شريف"},
-    {"text": "لا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا", "source": "البقرة: 286"},
-    {"text": "اغتنم خمساً قبل خمس: شبابك قبل هرمك...", "source": "حديث شريف"},
-    {"text": "المؤمن القوي خير وأحب إلى الله من المؤمن الضعيف", "source": "حديث شريف"},
-    {"text": "وَمَنْ يَتَّقِ اللَّهَ يَجْعَلْ لَهُ مَخْرَجًا", "source": "الطلاق: 2"},
-    {"text": "تبسمك في وجه أخيك صدقة", "source": "حديث شريف"},
-    {"text": "وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا", "source": "العنكبوت: 69"}
+    {"text": "من صلى البردين دخل الجنة", "source": "حديث شريف"},
+    {"text": "ركعتا الفجر خير من الدنيا وما فيها", "source": "حديث شريف"},
+    {"text": "مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت", "source": "حديث شريف"},
+    {"text": "إِنَّ الصَّلَاةَ كَانَتْ عَلَى الْمُؤْمِنِينَ كِتَابًا مَوْقُوتًا", "source": "النساء: 103"}
 ]
 daily_quote = random.choice(MOTIVATIONAL_QUOTES)
 
@@ -39,22 +35,14 @@ daily_quote = random.choice(MOTIVATIONAL_QUOTES)
 # ==========================================
 DEFAULT_WEEKLY_IDEAS = {
     "❤️ عمل خيري": [
-        "شراء كرتون ماء وتوزيعه على العمال",
-        "تنظيف مسجد الحي وتطيبه",
-        "جمع مبلغ بسيط للصدقة عن المجموعة",
-        "زيارة مريض في المستشفى أو الحي",
-        "إطعام قطط أو طيور في مكان عام"
+        "شراء كرتون ماء وتوزيعه على العمال", "تنظيف مسجد الحي وتطيبه",
+        "جمع مبلغ بسيط للصدقة عن المجموعة", "زيارة مريض", "إطعام قطط/طيور"
     ],
     "🍉 طعام ولمة": [
-        "فطور جماعي",
-        "عشاء خفيف في بيت أحد الشباب",
-        "شاي وقهوة في ممشى أو حديقة"
+        "فطور جماعي", "عشاء خفيف (نواشف)", "قهوة في حديقة"
     ],
     "⚽ نشاط وترفيه": [
-        "مباراة كرة قدم",
-        "مشي جماعي لمدة 30 دقيقة",
-        "مسابقة ثقافية خفيفة",
-        "رحلة قصيرة لنصف يوم"
+        "مباراة كرة قدم", "مشي جماعي 30 دقيقة", "مسابقة ثقافية", "كشتة قصيرة"
     ]
 }
 WEEKLY_IDEAS = DEFAULT_WEEKLY_IDEAS
@@ -115,25 +103,47 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==========================================
-# 🧮 محرك الحسابات
+# 🧮 محرك الحسابات (المنطق الجديد)
 # ==========================================
 def calculate_score(row):
     score = 0
-    if row.get('الفجر(وقت)') == 'نعم': score += 10
-    if row.get('الفجر(مسجد)') == 'نعم': score += 5
-    try: score += int(row.get('الصلوات(وقت)', 0)) * 6
+    
+    # 1. حساب الصلوات (جماعة=10، وقت=6، قضاء=0)
+    # 2. حساب السنن (2 نقطة لكل سنة)
+    prayers = ['الفجر', 'الظهر', 'العصر', 'المغرب', 'العشاء']
+    
+    for p in prayers:
+        status = row.get(f'{p}_حالة')
+        if status == 'جماعة (مسجد)': score += 10
+        elif status == 'في الوقت (بيت)': score += 6
+        
+        # السنن (العصر ليس له سنة راتبة مؤكدة في التطبيق للتبسيط)
+        if p != 'العصر': 
+            if row.get(f'{p}_سنة') == 'نعم': score += 3
+
+    # 3. الأذكار (3 نقاط لكل نوع)
+    if row.get('أذكار_الصباح') == 'نعم': score += 3
+    if row.get('أذكار_المساء') == 'نعم': score += 3
+    if row.get('أذكار_الصلاة') == 'نعم': score += 3 # أذكار دبر الصلوات
+
+    # 4. باقي الأعمال
+    try: 
+        qiyam_val = str(row.get('قيام'))
+        if qiyam_val not in ["0", "لا", "", "None"]: score += 8
     except: pass
-    try: score += int(row.get('الصلوات(مسجد)', 0)) * 2
+    
+    try:
+        quran_val = str(row.get('القرآن')) 
+        if quran_val not in ["0", "لا", "", "None"]: score += 8
     except: pass
-    if str(row.get('قيام')) not in ["0", "لا", ""]: score += 10
-    if str(row.get('القرآن')) not in ["0", "لا", ""]: score += 5
-    if row.get('الأذكار') == 'نعم': score += 5
-    if row.get('الصيام') == 'نعم': score += 5
-    if row.get('مجلس') == 'نعم': score += 5
-    if row.get('أسرة') == 'نعم': score += 5
-    if row.get('قراءة') == 'نعم': score += 5
-    if row.get('زيارة') == 'نعم': score += 5
-    return min(score, 100)
+    
+    if row.get('الصيام') == 'نعم': score += 10
+    if row.get('مجلس') == 'نعم': score += 4
+    if row.get('أسرة') == 'نعم': score += 4
+    if row.get('قراءة') == 'نعم': score += 4
+    if row.get('زيارة') == 'نعم': score += 4
+    
+    return min(score, 100) # الحد الأقصى 100
 
 def get_level_and_rank(total_points):
     level = 1 + (total_points // 500)
@@ -144,7 +154,7 @@ def get_level_and_rank(total_points):
     return level, title
 
 # ==========================================
-# 📊 تجهيز البيانات (يومي - أسبوعي - عام)
+# 📊 تجهيز البيانات
 # ==========================================
 current_user = st.session_state["user_name"]
 
@@ -154,211 +164,202 @@ try:
 except:
     full_df = pd.DataFrame()
 
-# متغيرات العرض
 leaderboard = pd.DataFrame()
 weekly_leaderboard = pd.DataFrame()
 daily_leaderboard = pd.DataFrame()
-
-weekly_champion_name = "---"
-weekly_champion_score = 0
-daily_champion_name = "---"
-daily_champion_score = 0
+weekly_champion_name = "---"; weekly_champion_score = 0
+daily_champion_name = "---"; daily_champion_score = 0
+my_total_xp = 0; my_level = 1; my_rank = "-"
 
 if not full_df.empty:
     full_df['Score'] = full_df.apply(calculate_score, axis=1)
-    
-    # تحويل التاريخ لمعالجته
     full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
     
-    # ----------------------------------------------------
-    # 1. الترتيب العام (تراكمي)
-    # ----------------------------------------------------
-    leaderboard = full_df.groupby('الاسم')['Score'].sum().reset_index()
-    leaderboard = leaderboard.sort_values('Score', ascending=False).reset_index(drop=True)
+    # الترتيب العام
+    leaderboard = full_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
     leaderboard['المستوى'] = leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[0])
     leaderboard['اللقب'] = leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[1])
-    leaderboard.insert(0, 'الترتيب', leaderboard.index + 1) # إضافة عمود الترتيب في البداية
+    leaderboard.insert(0, 'الترتيب', leaderboard.index + 1)
 
-    # إحصائيات المستخدم الحالي (من الترتيب العام)
     my_stats = leaderboard[leaderboard['الاسم'] == current_user]
     if not my_stats.empty:
         my_total_xp = my_stats.iloc[0]['Score']
         my_level = my_stats.iloc[0]['المستوى']
         my_rank = my_stats.iloc[0]['الترتيب']
-    else:
-        my_total_xp = 0; my_level = 1; my_rank = "-"
 
-    # ----------------------------------------------------
-    # 2. ترتيب الأسبوع الحالي (يتصفر كل أسبوع)
-    # ----------------------------------------------------
-    # نحدد رقم الأسبوع الحالي في السنة
+    # الأسبوعي
     current_week_number = datetime.now().isocalendar()[1]
     current_year = datetime.now().year
-    
-    # فلترة البيانات لتشمل فقط الأسبوع الحالي
     full_df['WeekNum'] = full_df['DateObj'].dt.isocalendar().week
     full_df['YearNum'] = full_df['DateObj'].dt.year
-    
     weekly_df = full_df[(full_df['WeekNum'] == current_week_number) & (full_df['YearNum'] == current_year)]
-    
     if not weekly_df.empty:
-        weekly_leaderboard = weekly_df.groupby('الاسم')['Score'].sum().reset_index()
-        weekly_leaderboard = weekly_leaderboard.sort_values('Score', ascending=False).reset_index(drop=True)
+        weekly_leaderboard = weekly_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
         weekly_leaderboard.insert(0, 'الترتيب', weekly_leaderboard.index + 1)
-        
         if not weekly_leaderboard.empty:
             weekly_champion_name = weekly_leaderboard.iloc[0]['الاسم']
             weekly_champion_score = weekly_leaderboard.iloc[0]['Score']
 
-    # ----------------------------------------------------
-    # 3. ترتيب اليوم (اليومي)
-    # ----------------------------------------------------
+    # اليومي
     today_str = datetime.now().strftime("%Y-%m-%d")
     daily_df = full_df[full_df['التاريخ'] == today_str]
-    
     if not daily_df.empty:
         daily_leaderboard = daily_df[['الاسم', 'Score']].sort_values('Score', ascending=False).reset_index(drop=True)
         daily_leaderboard.insert(0, 'الترتيب', daily_leaderboard.index + 1)
-        
         if not daily_leaderboard.empty:
             daily_champion_name = daily_leaderboard.iloc[0]['الاسم']
             daily_champion_score = daily_leaderboard.iloc[0]['Score']
 
-else:
-    my_total_xp = 0; my_level = 1; my_rank = "-"
-
 # ==========================================
 # 🖥️ الواجهة الرئيسية
 # ==========================================
-
-# العنوان
 col_h1, col_h2 = st.columns([6, 1])
-with col_h1:
-    st.title(f"مرحباً {current_user} 🌟")
-with col_h2:
-    if st.button("🚪 خروج", type="primary"):
-        st.session_state["authenticated"] = False; st.rerun()
+with col_h1: st.title(f"مرحباً {current_user} 🌟")
+with col_h2: 
+    if st.button("🚪 خروج", type="primary"): st.session_state["authenticated"] = False; st.rerun()
 
-# الصندوق التحفيزي
-st.markdown(f"""
-<div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-    <b>{daily_quote['text']}</b> <br><small>— {daily_quote['source']}</small>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(f"<div style='background-color: #d4edda; color: #155724; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 20px;'><b>{daily_quote['text']}</b> <br><small>— {daily_quote['source']}</small></div>", unsafe_allow_html=True)
 
-# 🏆 === لوحة الصدارة البارزة (الأسبوعي) === 🏆
 st.markdown("---")
 col_champ, col_ideas = st.columns([1, 2])
-
 with col_champ:
     st.markdown(f"""
     <div style="background-color: #fff3cd; border: 2px solid #ffeeba; border-radius: 10px; padding: 20px; text-align: center;">
-        <h4 style="margin:0; color: #856404;">📅 بطل هذا الأسبوع</h4>
+        <h4 style="margin:0; color: #856404;">📅 بطل الأسبوع</h4>
         <h2 style="color: #856404; margin: 10px 0;">{weekly_champion_name}</h2>
         <p style="font-size: 1.1em;">{weekly_champion_score} نقطة</p>
     </div>
     """, unsafe_allow_html=True)
-
 with col_ideas:
-    with st.expander("💡 خيارات الفائز لهذا الأسبوع", expanded=True):
-        st.write(f"القرار عند **{weekly_champion_name}**، اختر لنا:")
-        c_i1, c_i2, c_i3 = st.columns(3)
-        with c_i1:
+    with st.expander("💡 خيارات الفائز", expanded=True):
+        st.write(f"القرار عند **{weekly_champion_name}**:")
+        c1, c2, c3 = st.columns(3)
+        with c1: 
             st.info("**❤️ عمل خيري**")
-            for item in WEEKLY_IDEAS["❤️ عمل خيري"]: st.write(f"- {item}")
-        with c_i2:
-            st.warning("**🍉 طعام ولمة**")
-            for item in WEEKLY_IDEAS["🍉 طعام ولمة"]: st.write(f"- {item}")
-        with c_i3:
-            st.success("**⚽ نشاط**")
-            for item in WEEKLY_IDEAS["⚽ نشاط وترفيه"]: st.write(f"- {item}")
+            for i in WEEKLY_IDEAS["❤️ عمل خيري"]: st.write(f"- {i}")
+        with c2: 
+            st.warning("**🍉 طعام**")
+            for i in WEEKLY_IDEAS["🍉 طعام ولمة"]: st.write(f"- {i}")
+        with c3: 
+            st.success("**⚽ ترفيه**")
+            for i in WEEKLY_IDEAS["⚽ نشاط وترفيه"]: st.write(f"- {i}")
 
 st.markdown("---")
-
-# شريط التقدم العام
 st.info(f"🏅 **ترتيبك العام: #{my_rank}** | 🛡️ **المستوى {my_level}** | ✨ **كل النقاط: {my_total_xp}**")
 points_next_level = (my_level * 500) - my_total_xp
 progress = 1 - (points_next_level / 500)
-st.progress(max(0.0, min(1.0, progress)), text=f"باقي {points_next_level} نقطة للمستوى التالي")
+st.progress(max(0.0, min(1.0, progress)), text=f"باقي {points_next_level} نقطة")
 
 # --- التبويبات ---
 tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 لوحات الصدارة", "📊 سجلي"])
 
 with tab1:
     with st.form("entry_form"):
-        c_main, c_date = st.columns([3, 1])
-        st.text_input("الاسم", value=current_user, disabled=True)
-        day_date = datetime.now().strftime("%Y-%m-%d")
-        c_date.write(f"📅 {day_date}")
+        st.write("### 🕌 الصلوات الخمس")
+        st.caption("حدد حالة كل صلاة (جماعة / وقت / قضاء) وهل صليت السنة الراتبة؟")
+        
+        # خيارات الحالة
+        status_options = ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"]
+        
+        # الصف الأول: فجر - ظهر - عصر
+        c_p1, c_p2, c_p3 = st.columns(3)
+        with c_p1:
+            st.markdown("**الفجر**")
+            fajr_status = st.selectbox("حالة الفجر", status_options, key="fajr_st")
+            fajr_sunnah = st.checkbox("سنة الفجر", key="fajr_sn")
+        with c_p2:
+            st.markdown("**الظهر**")
+            dhuhr_status = st.selectbox("حالة الظهر", status_options, key="dhuhr_st")
+            dhuhr_sunnah = st.checkbox("سنة الظهر", key="dhuhr_sn")
+        with c_p3:
+            st.markdown("**العصر**")
+            asr_status = st.selectbox("حالة العصر", status_options, key="asr_st")
+            st.write("") # العصر غالباً ليس له سنة راتبة مؤكدة في التتبع اليومي البسيط
+            
+        st.write("---")
+        # الصف الثاني: مغرب - عشاء
+        c_p4, c_p5, c_dummy = st.columns(3)
+        with c_p4:
+            st.markdown("**المغرب**")
+            maghrib_status = st.selectbox("حالة المغرب", status_options, key="mag_st")
+            maghrib_sunnah = st.checkbox("سنة المغرب", key="mag_sn")
+        with c_p5:
+            st.markdown("**العشاء**")
+            isha_status = st.selectbox("حالة العشاء", status_options, key="isha_st")
+            isha_sunnah = st.checkbox("سنة العشاء", key="isha_sn")
 
-        st.write("#### 🕌 الصلاة")
-        c1, c2, c3 = st.columns(3)
-        fajr_ontime = c1.checkbox("الفجر وقت (+10)")
-        fajr_mosque = c1.checkbox("الفجر مسجد (+5)")
-        prayers_ontime = c2.slider("الصلوات وقت (×6)", 0, 5, 5)
-        prayers_mosque = c2.slider("الصلوات مسجد (×2)", 0, 5, 5)
-        qiyam = c3.select_slider("قيام الليل (+10)", ["0", "2", "4", "6", "8", "أكثر"], "0")
-        sunnah = c3.checkbox("السنن")
+        st.write("---")
+        st.write("#### 📿 الأذكار والقرآن")
+        c_az1, c_az2, c_az3 = st.columns(3)
+        adhkar_morn = c_az1.checkbox("☀️ أذكار الصباح")
+        adhkar_eve = c_az2.checkbox("🌙 أذكار المساء")
+        adhkar_post = c_az3.checkbox("🤲 أذكار دبر الصلاة")
+        
+        st.write("")
+        c_q1, c_q2 = st.columns(2)
+        qiyam = c_q1.select_slider("قيام الليل", ["0", "2", "4", "6", "8", "أكثر"], "0")
+        quran = c_q2.select_slider("الورد القرآني", ["0", "وجه", "ربع", "نصف", "حزب", "حزبين"], "0")
 
-        st.write("#### 📖 روحانيات")
-        c4, c5 = st.columns(2)
-        quran = c4.select_slider("القرآن (+5)", ["0", "1/4", "1/2", "3/4", "1 حزب", "أكثر"])
-        adhkar = c5.checkbox("الأذكار (+5)")
-        fasting = c5.checkbox("الصيام (+5)")
+        st.write("#### 🌱 أعمال أخرى")
+        cc1, cc2, cc3, cc4, cc5 = st.columns(5)
+        fasting = cc1.checkbox("صيام")
+        majlis = cc2.checkbox("مجلس التدارس")
+        family = cc3.checkbox("بر/أسرة")
+        reading = cc4.checkbox("قراءة")
+        visit = cc5.checkbox("زيارة")
 
-        st.write("#### 🌱 اجتماعي")
-        cc1, cc2, cc3, cc4 = st.columns(4)
-        majlis = cc1.checkbox("مجلس علم (+5)")
-        family = cc2.checkbox("جلسة أهل (+5)")
-        reading = cc3.checkbox("قراءة (+5)")
-        visit = cc4.checkbox("زيارة (+5)")
-
-        if st.form_submit_button("✅ حفظ"):
+        if st.form_submit_button("✅ حفظ التسجيل"):
+            day_date = datetime.now().strftime("%Y-%m-%d")
             user_specific_df = full_df[full_df['الاسم'] == current_user] if not full_df.empty else pd.DataFrame()
             if not user_specific_df.empty and day_date in user_specific_df['التاريخ'].astype(str).values:
-                st.error(f"⛔ مسجل مسبقاً لهذا اليوم ({day_date}).")
+                st.error(f"⛔ قمت بالتسجيل مسبقاً لهذا اليوم ({day_date}).")
             else:
+                # ترتيب البيانات للحفظ
                 row = [
-                    day_date, current_user, 
-                    "نعم" if fajr_ontime else "لا", "نعم" if fajr_mosque else "لا",
-                    prayers_ontime, prayers_mosque, qiyam, quran,
-                    "نعم" if adhkar else "لا", "نعم" if fasting else "لا",
+                    day_date, current_user,
+                    # الصلوات
+                    fajr_status, "نعم" if fajr_sunnah else "لا",
+                    dhuhr_status, "نعم" if dhuhr_sunnah else "لا",
+                    asr_status,
+                    maghrib_status, "نعم" if maghrib_sunnah else "لا",
+                    isha_status, "نعم" if isha_sunnah else "لا",
+                    # الأذكار
+                    "نعم" if adhkar_morn else "لا",
+                    "نعم" if adhkar_eve else "لا",
+                    "نعم" if adhkar_post else "لا",
+                    # الباقي
+                    qiyam, quran,
+                    "نعم" if fasting else "لا",
                     "نعم" if majlis else "لا", "نعم" if family else "لا",
                     "نعم" if reading else "لا", "نعم" if visit else "لا"
                 ]
                 with st.spinner("جاري الحفظ..."):
+                    # هنا نستخدم أسماء الأعمدة الجديدة في رأس الملف (سيتم إضافتها تلقائياً كصف جديد)
+                    # لكن يفضل مسح الملف القديم أو إضافة عناوين يدوياً إذا اختلطت البيانات
                     sheet_data.append_row(row)
-                    st.success("تم الحفظ!")
+                    st.success("تم الحفظ بنجاح!")
                     time.sleep(1)
                     st.rerun()
 
 with tab2:
-    st.markdown("### اختر الترتيب الذي تريد عرضه:")
-    t2_1, t2_2, t2_3 = st.tabs(["🥇 الترتيب العام", "📅 ترتيب هذا الأسبوع", "🌟 ترتيب اليوم"])
+    st.markdown("### اختر الترتيب:")
+    t2_1, t2_2, t2_3 = st.tabs(["🥇 العام", "📅 الأسبوعي", "🌟 اليومي"])
     
     with t2_1:
-        st.markdown("الترتيب التراكمي منذ بداية السباق")
-        if not leaderboard.empty:
-            st.dataframe(leaderboard[['الترتيب', 'الاسم', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True)
+        if not leaderboard.empty: st.dataframe(leaderboard[['الترتيب', 'الاسم', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True)
         else: st.info("لا بيانات")
-        
     with t2_2:
-        st.markdown(f"نقاط هذا الأسبوع فقط (الأسبوع رقم {current_week_number})")
-        if not weekly_leaderboard.empty:
-            st.dataframe(weekly_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
-        else: st.info("لم يسجل أحد نقاطاً هذا الأسبوع بعد.")
-        
+        if not weekly_leaderboard.empty: st.dataframe(weekly_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
+        else: st.info("بداية أسبوع جديدة!")
     with t2_3:
-        st.markdown(f"نقاط اليوم ({today_str})")
-        if not daily_leaderboard.empty:
+        if not daily_leaderboard.empty: 
             st.dataframe(daily_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
-            st.success(f"🌟 **نجم اليوم هو:** {daily_champion_name}")
-        else: st.info("لم يسجل أحد اليوم بعد.")
+            st.success(f"🌟 **نجم اليوم:** {daily_champion_name}")
+        else: st.info("لم يسجل أحد اليوم.")
 
 with tab3:
     my_history = full_df[full_df['الاسم'] == current_user].copy() if not full_df.empty else pd.DataFrame()
     if not my_history.empty:
         st.line_chart(my_history.set_index("التاريخ")['Score'])
         st.dataframe(my_history, use_container_width=True)
-    else:
-        st.info("لا يوجد سجل.")
+    else: st.info("سجلك فارغ.")
