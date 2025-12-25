@@ -16,18 +16,18 @@ st.set_page_config(page_title="سباق الصالحين", layout="wide", page_i
 MY_PASSWORD = "Taqwa@2025@Secret!"
 
 # ==========================================
-# 📋 عناوين الأعمدة (HEADERS) - تمت الإضافة
+# 📋 عناوين الأعمدة (HEADERS)
 # ==========================================
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم",
     "الفجر_حالة", "الفجر_سنة",
-    "الضحى",  # << جديد: صلاة الضحى
+    "الضحى",
     "الظهر_حالة", "الظهر_سنة",
     "العصر_حالة",
     "المغرب_حالة", "المغرب_سنة",
     "العشاء_حالة", "العشاء_سنة",
     "أذكار_الصباح", "أذكار_المساء", "أذكار_الصلاة", 
-    "أذكار_النوم", "سورة_الملك", # << جديد: سورة الملك
+    "أذكار_النوم", "سورة_الملك",
     "قيام", "القرآن", "الصيام", "مجلس", "أسرة", "قراءة", "زيارة",
     "جمعة_كهف", "جمعة_صلاة_نبي"
 ]
@@ -88,7 +88,7 @@ try:
         if not current_headers or current_headers != EXPECTED_HEADERS:
             sheet_data.delete_rows(1)
             sheet_data.insert_row(EXPECTED_HEADERS, 1)
-            st.toast("✅ تم إضافة الضحى والملك للقائمة!", icon="✨")
+            # st.toast("✅ تم تحديث الجدول!", icon="✨")
     except Exception as e:
         st.warning(f"ملاحظة: {e}")
 
@@ -146,7 +146,7 @@ def calculate_score(row):
     if row.get('أذكار_المساء') == 'نعم': score += 3
     if row.get('أذكار_الصلاة') == 'نعم': score += 3
     if row.get('أذكار_النوم') == 'نعم': score += 3 
-    if row.get('سورة_الملك') == 'نعم': score += 5 # سورة الملك
+    if row.get('سورة_الملك') == 'نعم': score += 5 
 
     # 3. الباقي
     if str(row.get('قيام')) not in ["0", "لا", "", "None"]: score += 8
@@ -162,7 +162,7 @@ def calculate_score(row):
     if row.get('جمعة_كهف') == 'نعم': score += 15
     if row.get('جمعة_صلاة_نبي') == 'نعم': score += 15
     
-    return min(score, 145) # تعديل الحد الأقصى
+    return min(score, 145)
 
 def get_level_and_rank(total_points):
     level = 1 + (total_points // 500)
@@ -295,9 +295,9 @@ with tab1:
             fajr_sn = st.checkbox("سنة الفجر", key="fsn")
         with c_p2:
             st.markdown("**☀️ الضحى**")
-            duha = st.checkbox("ركعتا الضحى (+5)", key="duha") # الضحى هنا
+            duha = st.checkbox("ركعتا الضحى (+5)", key="duha") 
         with c_p3:
-            st.write("") # فراغ لتنسيق العمود
+            st.write("") 
             
         c_p4, c_p5, c_p6 = st.columns(3)
         with c_p4:
@@ -322,11 +322,10 @@ with tab1:
         az_e = c_az2.checkbox("أذكار المساء")
         az_p = c_az3.checkbox("أذكار الصلاة")
         
-        # تجميع أذكار النوم مع سورة الملك
         with c_az4:
             st.markdown("**النوم**")
             az_s = st.checkbox("أذكار النوم")
-            mulk = st.checkbox("سورة الملك 🛡️") # سورة الملك
+            mulk = st.checkbox("سورة الملك 🛡️")
 
         st.write("")
         c_q1, c_q2 = st.columns(2)
@@ -350,13 +349,13 @@ with tab1:
                 row = [
                     day_date, current_user,
                     fajr_st, "نعم" if fajr_sn else "لا",
-                    "نعم" if duha else "لا", # الضحى
+                    "نعم" if duha else "لا",
                     dhuhr_st, "نعم" if dhuhr_sn else "لا",
                     asr_st,
                     mag_st, "نعم" if mag_sn else "لا",
                     isha_st, "نعم" if isha_sn else "لا",
                     "نعم" if az_m else "لا", "نعم" if az_e else "لا", "نعم" if az_p else "لا",
-                    "نعم" if az_s else "لا", "نعم" if mulk else "لا", # النوم والملك
+                    "نعم" if az_s else "لا", "نعم" if mulk else "لا",
                     qiyam, quran, "نعم" if fasting else "لا", "نعم" if majlis else "لا",
                     "نعم" if family else "لا", "نعم" if read else "لا", "نعم" if visit else "لا",
                     "نعم" if kahf else "لا", "نعم" if salat_nabi else "لا"
@@ -367,15 +366,30 @@ with tab1:
                     time.sleep(1)
                     st.rerun()
 
+# ----------------------------------------------------
+# ⚠️ تم إصلاح الخطأ هنا (تحويل السطر الواحد إلى IF عادية)
+# ----------------------------------------------------
 with tab2:
     t2_1, t2_2, t2_3 = st.tabs(["🥇 العام", "📅 الأسبوعي", "🌟 اليومي"])
-    with t2_1: st.dataframe(leaderboard[['الترتيب', 'الاسم', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True) if not leaderboard.empty else st.info("..")
-    with t2_2: st.dataframe(weekly_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True) if not weekly_leaderboard.empty else st.info("..")
+    
+    with t2_1: 
+        if not leaderboard.empty:
+            st.dataframe(leaderboard[['الترتيب', 'الاسم', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True)
+        else: 
+            st.info("لا توجد بيانات حتى الآن.")
+            
+    with t2_2: 
+        if not weekly_leaderboard.empty:
+            st.dataframe(weekly_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True) 
+        else: 
+            st.info("بداية أسبوع جديدة!")
+            
     with t2_3: 
         if not daily_leaderboard.empty: 
             st.dataframe(daily_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
             st.success(f"نجم اليوم: {daily_champion_name}")
-        else: st.info("..")
+        else: 
+            st.info("لم يسجل أحد اليوم.")
 
 with tab3:
     if not full_df.empty and current_user in full_df['الاسم'].values:
