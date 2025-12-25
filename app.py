@@ -450,7 +450,7 @@ with tab1:
         fasting = cc1.checkbox(" صيام التطوع")
         majlis = cc2.checkbox("مجلس التدارس")
         family = cc3.checkbox("بر الأسرة")
-        read = cc4.checkbox("قراءة نافعة")
+        read = cc4.checkbox("قراءة كتاب")
         visit = cc5.checkbox("زيارة/صلة")
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -505,6 +505,7 @@ with tab3:
         st.area_chart(my_hist.set_index("التاريخ")['Score'], color="#009688")
         st.dataframe(my_hist, use_container_width=True)
     else: st.info("ليس لديك سجلات سابقة")
+
 
 
 
