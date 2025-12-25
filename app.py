@@ -30,17 +30,13 @@ MOTIVATIONAL_QUOTES = [
     {"text": "المؤمن القوي خير وأحب إلى الله من المؤمن الضعيف", "source": "حديث شريف"},
     {"text": "وَمَنْ يَتَّقِ اللَّهَ يَجْعَلْ لَهُ مَخْرَجًا", "source": "الطلاق: 2"},
     {"text": "تبسمك في وجه أخيك صدقة", "source": "حديث شريف"},
-    {"text": "وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا", "source": "العنكبوت: 69"},
-    {"text": "من سلك طريقاً يلتمس فيه علماً سهل الله له طريقاً إلى الجنة", "source": "حديث شريف"},
-    {"text": "إن الحسنات يذهبن السيئات", "source": "هود: 114"},
-    {"text": "الكلمة الطيبة صدقة", "source": "حديث شريف"}
+    {"text": "وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا", "source": "العنكبوت: 69"}
 ]
 daily_quote = random.choice(MOTIVATIONAL_QUOTES)
 
 # ==========================================
 # 💡 مقترحات بطل الأسبوع
 # ==========================================
-# القائمة الأساسية للأفكار
 DEFAULT_WEEKLY_IDEAS = {
     "❤️ عمل خيري": [
         "شراء كرتون ماء وتوزيعه على العمال",
@@ -61,8 +57,6 @@ DEFAULT_WEEKLY_IDEAS = {
         "رحلة قصيرة لنصف يوم"
     ]
 }
-
-# نستخدم المتغير هنا مباشرة
 WEEKLY_IDEAS = DEFAULT_WEEKLY_IDEAS
 
 # ==========================================
@@ -150,7 +144,7 @@ def get_level_and_rank(total_points):
     return level, title
 
 # ==========================================
-# 📊 تجهيز البيانات
+# 📊 تجهيز البيانات (يومي - أسبوعي - عام)
 # ==========================================
 current_user = st.session_state["user_name"]
 
@@ -160,42 +154,77 @@ try:
 except:
     full_df = pd.DataFrame()
 
-# متغيرات لحفظ بطل الأسبوع
-weekly_champion_name = "لا يوجد بيانات"
+# متغيرات العرض
+leaderboard = pd.DataFrame()
+weekly_leaderboard = pd.DataFrame()
+daily_leaderboard = pd.DataFrame()
+
+weekly_champion_name = "---"
 weekly_champion_score = 0
+daily_champion_name = "---"
+daily_champion_score = 0
 
 if not full_df.empty:
     full_df['Score'] = full_df.apply(calculate_score, axis=1)
     
-    # 1. الترتيب العام
+    # تحويل التاريخ لمعالجته
+    full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
+    
+    # ----------------------------------------------------
+    # 1. الترتيب العام (تراكمي)
+    # ----------------------------------------------------
     leaderboard = full_df.groupby('الاسم')['Score'].sum().reset_index()
     leaderboard = leaderboard.sort_values('Score', ascending=False).reset_index(drop=True)
-    leaderboard.columns = ['الاسم', 'مجموع_النقاط']
-    leaderboard['المستوى'] = leaderboard['مجموع_النقاط'].apply(lambda x: get_level_and_rank(x)[0])
-    leaderboard['اللقب'] = leaderboard['مجموع_النقاط'].apply(lambda x: get_level_and_rank(x)[1])
-    leaderboard['الترتيب'] = leaderboard.index + 1
-    
-    # 2. حساب بطل الأسبوع (آخر 7 أيام)
-    full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
-    seven_days_ago = datetime.now() - timedelta(days=7)
-    weekly_df = full_df[full_df['DateObj'] >= seven_days_ago]
-    
-    if not weekly_df.empty:
-        weekly_stats = weekly_df.groupby('الاسم')['Score'].sum().sort_values(ascending=False)
-        if not weekly_stats.empty:
-            weekly_champion_name = weekly_stats.index[0]
-            weekly_champion_score = weekly_stats.iloc[0]
+    leaderboard['المستوى'] = leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[0])
+    leaderboard['اللقب'] = leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[1])
+    leaderboard.insert(0, 'الترتيب', leaderboard.index + 1) # إضافة عمود الترتيب في البداية
 
-    # إحصائياتي
+    # إحصائيات المستخدم الحالي (من الترتيب العام)
     my_stats = leaderboard[leaderboard['الاسم'] == current_user]
     if not my_stats.empty:
-        my_total_xp = my_stats.iloc[0]['مجموع_النقاط']
+        my_total_xp = my_stats.iloc[0]['Score']
         my_level = my_stats.iloc[0]['المستوى']
         my_rank = my_stats.iloc[0]['الترتيب']
     else:
         my_total_xp = 0; my_level = 1; my_rank = "-"
+
+    # ----------------------------------------------------
+    # 2. ترتيب الأسبوع الحالي (يتصفر كل أسبوع)
+    # ----------------------------------------------------
+    # نحدد رقم الأسبوع الحالي في السنة
+    current_week_number = datetime.now().isocalendar()[1]
+    current_year = datetime.now().year
+    
+    # فلترة البيانات لتشمل فقط الأسبوع الحالي
+    full_df['WeekNum'] = full_df['DateObj'].dt.isocalendar().week
+    full_df['YearNum'] = full_df['DateObj'].dt.year
+    
+    weekly_df = full_df[(full_df['WeekNum'] == current_week_number) & (full_df['YearNum'] == current_year)]
+    
+    if not weekly_df.empty:
+        weekly_leaderboard = weekly_df.groupby('الاسم')['Score'].sum().reset_index()
+        weekly_leaderboard = weekly_leaderboard.sort_values('Score', ascending=False).reset_index(drop=True)
+        weekly_leaderboard.insert(0, 'الترتيب', weekly_leaderboard.index + 1)
+        
+        if not weekly_leaderboard.empty:
+            weekly_champion_name = weekly_leaderboard.iloc[0]['الاسم']
+            weekly_champion_score = weekly_leaderboard.iloc[0]['Score']
+
+    # ----------------------------------------------------
+    # 3. ترتيب اليوم (اليومي)
+    # ----------------------------------------------------
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    daily_df = full_df[full_df['التاريخ'] == today_str]
+    
+    if not daily_df.empty:
+        daily_leaderboard = daily_df[['الاسم', 'Score']].sort_values('Score', ascending=False).reset_index(drop=True)
+        daily_leaderboard.insert(0, 'الترتيب', daily_leaderboard.index + 1)
+        
+        if not daily_leaderboard.empty:
+            daily_champion_name = daily_leaderboard.iloc[0]['الاسم']
+            daily_champion_score = daily_leaderboard.iloc[0]['Score']
+
 else:
-    leaderboard = pd.DataFrame()
     my_total_xp = 0; my_level = 1; my_rank = "-"
 
 # ==========================================
@@ -217,24 +246,22 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# 🏆 === قسم بطل الأسبوع === 🏆
+# 🏆 === لوحة الصدارة البارزة (الأسبوعي) === 🏆
 st.markdown("---")
 col_champ, col_ideas = st.columns([1, 2])
 
 with col_champ:
     st.markdown(f"""
     <div style="background-color: #fff3cd; border: 2px solid #ffeeba; border-radius: 10px; padding: 20px; text-align: center;">
-        <h2 style="margin:0;">👑 بطل الأسبوع</h2>
-        <h1 style="color: #856404; margin: 10px 0;">{weekly_champion_name}</h1>
-        <p style="font-size: 1.2em;">مجموع {weekly_champion_score} نقطة (آخر 7 أيام)</p>
-        <p><b>🎉 القرار بيدك! اختر فعالية للأسبوع:</b></p>
+        <h4 style="margin:0; color: #856404;">📅 بطل هذا الأسبوع</h4>
+        <h2 style="color: #856404; margin: 10px 0;">{weekly_champion_name}</h2>
+        <p style="font-size: 1.1em;">{weekly_champion_score} نقطة</p>
     </div>
     """, unsafe_allow_html=True)
 
 with col_ideas:
-    with st.expander("💡 اضغط هنا لرؤية مقترحات لبطل الأسبوع", expanded=True):
-        st.write("يا **" + weekly_champion_name + "**، بما أنك المتصدر، اختر لنا نشاطاً نقوم به:")
-        
+    with st.expander("💡 خيارات الفائز لهذا الأسبوع", expanded=True):
+        st.write(f"القرار عند **{weekly_champion_name}**، اختر لنا:")
         c_i1, c_i2, c_i3 = st.columns(3)
         with c_i1:
             st.info("**❤️ عمل خيري**")
@@ -243,22 +270,19 @@ with col_ideas:
             st.warning("**🍉 طعام ولمة**")
             for item in WEEKLY_IDEAS["🍉 طعام ولمة"]: st.write(f"- {item}")
         with c_i3:
-            st.success("**⚽ نشاط وترفيه**")
+            st.success("**⚽ نشاط**")
             for item in WEEKLY_IDEAS["⚽ نشاط وترفيه"]: st.write(f"- {item}")
-        
-        st.write("---")
-        st.caption("أو اقترح أي فكرة أخرى تراها مناسبة!")
 
 st.markdown("---")
 
-# شريط التقدم
+# شريط التقدم العام
 st.info(f"🏅 **ترتيبك العام: #{my_rank}** | 🛡️ **المستوى {my_level}** | ✨ **كل النقاط: {my_total_xp}**")
 points_next_level = (my_level * 500) - my_total_xp
 progress = 1 - (points_next_level / 500)
 st.progress(max(0.0, min(1.0, progress)), text=f"باقي {points_next_level} نقطة للمستوى التالي")
 
 # --- التبويبات ---
-tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 الترتيب العام", "📊 سجلي"])
+tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 لوحات الصدارة", "📊 سجلي"])
 
 with tab1:
     with st.form("entry_form"):
@@ -309,14 +333,27 @@ with tab1:
                     st.rerun()
 
 with tab2:
-    if not leaderboard.empty:
-        st.dataframe(
-            leaderboard[['الترتيب', 'الاسم', 'المستوى', 'مجموع_النقاط', 'اللقب']],
-            use_container_width=True, hide_index=True,
-            column_config={"مجموع_النقاط": st.column_config.ProgressColumn("النقاط", max_value=5000, format="%d")}
-        )
-    else:
-        st.info("لا توجد بيانات.")
+    st.markdown("### اختر الترتيب الذي تريد عرضه:")
+    t2_1, t2_2, t2_3 = st.tabs(["🥇 الترتيب العام", "📅 ترتيب هذا الأسبوع", "🌟 ترتيب اليوم"])
+    
+    with t2_1:
+        st.markdown("الترتيب التراكمي منذ بداية السباق")
+        if not leaderboard.empty:
+            st.dataframe(leaderboard[['الترتيب', 'الاسم', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True)
+        else: st.info("لا بيانات")
+        
+    with t2_2:
+        st.markdown(f"نقاط هذا الأسبوع فقط (الأسبوع رقم {current_week_number})")
+        if not weekly_leaderboard.empty:
+            st.dataframe(weekly_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
+        else: st.info("لم يسجل أحد نقاطاً هذا الأسبوع بعد.")
+        
+    with t2_3:
+        st.markdown(f"نقاط اليوم ({today_str})")
+        if not daily_leaderboard.empty:
+            st.dataframe(daily_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
+            st.success(f"🌟 **نجم اليوم هو:** {daily_champion_name}")
+        else: st.info("لم يسجل أحد اليوم بعد.")
 
 with tab3:
     my_history = full_df[full_df['الاسم'] == current_user].copy() if not full_df.empty else pd.DataFrame()
