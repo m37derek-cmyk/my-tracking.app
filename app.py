@@ -8,7 +8,96 @@ import random
 import time 
 
 # --- إعدادات الصفحة ---
-st.set_page_config(page_title="سباق الصالحين", layout="wide", page_icon="🕌")
+st.set_page_config(
+    page_title="سباق الصالحين", 
+    layout="wide", 
+    page_icon="🕌",
+    initial_sidebar_state="collapsed"
+)
+
+# ==========================================
+# 🎨 التصميم الجذاب (CSS + Fonts)
+# ==========================================
+st.markdown("""
+<style>
+    /* استيراد خط تجوال أو كايرو من جوجل */
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+
+    /* تطبيق الخط على كامل التطبيق */
+    html, body, [class*="css"] {
+        font-family: 'Cairo', sans-serif;
+        direction: rtl;
+    }
+
+    /* خلفية التطبيق */
+    .stApp {
+        background-color: #f8f9fa;
+        background-image: radial-gradient(#e2e2e2 1px, transparent 1px);
+        background-size: 20px 20px;
+    }
+
+    /* تنسيق صفحة الدخول (الصندوق) */
+    .login-container {
+        background-color: white;
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        text-align: center;
+        border-top: 5px solid #009688;
+    }
+
+    /* تنسيق الأزرار */
+    .stButton>button {
+        background: linear-gradient(45deg, #009688, #4DB6AC);
+        color: white;
+        border-radius: 12px;
+        border: none;
+        padding: 10px 25px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+    .stButton>button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 5px 15px rgba(0, 150, 136, 0.4);
+    }
+
+    /* تنسيق صناديق المعلومات (Cards) */
+    .metric-card {
+        background-color: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border: 1px solid #eee;
+        text-align: center;
+        transition: transform 0.3s;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+        border-color: #009688;
+    }
+
+    /* تنسيق العناوين */
+    h1, h2, h3 {
+        color: #2c3e50;
+    }
+    
+    /* تنسيق بطل الأسبوع */
+    .champion-box {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+        border: 2px solid #ffc107;
+        border-radius: 15px;
+        padding: 20px;
+        color: #856404;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+    }
+
+    /* إخفاء القائمة العلوية الافتراضية لستريم ليت */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
 
 # ==========================================
 # 🔑 إعدادات المجموعات وكلمات المرور
@@ -20,12 +109,11 @@ GROUPS_CONFIG = {
 }
 
 # ==========================================
-# 📋 عناوين الأعمدة (HEADERS)
+# 📋 عناوين الأعمدة
 # ==========================================
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم", "المجموعة",
-    "الفجر_حالة", "الفجر_سنة",
-    "الضحى", 
+    "الفجر_حالة", "الفجر_سنة", "الضحى", 
     "الظهر_حالة", "الظهر_سنة",
     "العصر_حالة",
     "المغرب_حالة", "المغرب_سنة",
@@ -48,9 +136,6 @@ MOTIVATIONAL_QUOTES = [
 ]
 daily_quote = random.choice(MOTIVATIONAL_QUOTES)
 
-# ==========================================
-# 💡 مقترحات بطل الأسبوع
-# ==========================================
 WEEKLY_IDEAS = {
     "❤️ عمل خيري": ["ماء للعمال", "تنظيف مسجد", "صدقة", "زيارة مريض", "إطعام طير"],
     "🍉 طعام": ["فطور جماعي", "عشاء خفيف", "قهوة"],
@@ -84,23 +169,19 @@ spreadsheet_url = "https://docs.google.com/spreadsheets/d/1XqSb4DmiUEd-mt9WMlVPT
 try:
     sh = client.open_by_url(spreadsheet_url)
     sheet_data = sh.sheet1 
-    
-    # 🔥 التصحيح التلقائي للعناوين
+    # تصحيح العناوين
     try:
         current_headers = sheet_data.row_values(1)
         if not current_headers or current_headers != EXPECTED_HEADERS:
             sheet_data.delete_rows(1)
             sheet_data.insert_row(EXPECTED_HEADERS, 1)
-            st.toast("✅ تم تحديث النظام لدعم المجموعات!", icon="👥")
-    except Exception as e:
-        st.warning(f"ملاحظة: {e}")
-
+    except: pass
 except Exception as e:
     st.error(f"خطأ في فتح الملف: {e}")
     st.stop()
 
 # ==========================================
-# 🔒 نظام تسجيل الدخول
+# 🔒 صفحة تسجيل الدخول (تصميم جديد كلياً)
 # ==========================================
 def check_login():
     input_user = st.session_state["login_user"].strip()
@@ -117,19 +198,38 @@ def check_login():
         st.session_state["user_name"] = input_user
         st.session_state["user_group"] = found_group
     else:
-        st.session_state["authenticated"] = False
-        st.error("⛔ اسم المستخدم أو كلمة المرور غير صحيحة.")
+        st.toast("⛔ اسم المستخدم أو كلمة المرور غير صحيحة", icon="❌")
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.markdown("<br><br><h2 style='text-align: center;'>🔒 تسجيل الدخول</h2>", unsafe_allow_html=True)
-    st.info("ℹ️ أدخل كلمة مرور مجموعتك الخاصة للدخول.")
-    c1, c2 = st.columns(2)
-    with c1: st.text_input("الاسم الكريم:", key="login_user")
-    with c2: st.text_input("كلمة المرور:", type="password", key="login_pass")
-    st.button("دخول", on_click=check_login, use_container_width=True)
+    # تصميم صفحة الدخول في الوسط
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class="login-container">
+            <h1 style="color: #009688;">🕌 سباق الصالحين</h1>
+            <p style="color: #666; font-size: 1.1em;">منصة التنافس الأخوي في الطاعات</p>
+            <hr style="border-top: 1px solid #eee; margin: 20px 0;">
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.info("👋 أهلاً بك! أدخل اسمك وكلمة مرور مجموعتك")
+        
+        st.text_input("👤 الاسم الكريم:", key="login_user", placeholder="اكتب اسمك هنا...")
+        st.text_input("🔑 كلمة المرور:", type="password", key="login_pass", placeholder="رمز المجموعة...")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.button("🚀 انطلق في السباق", on_click=check_login, use_container_width=True)
+        
+        st.markdown("""
+        <div style="text-align: center; margin-top: 20px; font-size: 0.9em; color: #888;">
+            "وفي ذلك فليتنافس المتنافسون"
+        </div>
+        """, unsafe_allow_html=True)
+
     st.stop()
 
 # ==========================================
@@ -137,29 +237,22 @@ if not st.session_state["authenticated"]:
 # ==========================================
 def calculate_score(row):
     score = 0
-    
-    # 1. الصلوات
-    prayers_map = {
-        'الفجر': 'الفجر_حالة', 'الظهر': 'الظهر_حالة', 
-        'العصر': 'العصر_حالة', 'المغرب': 'المغرب_حالة', 'العشاء': 'العشاء_حالة'
-    }
+    # الصلوات
+    prayers_map = {'الفجر': 'الفجر_حالة', 'الظهر': 'الظهر_حالة', 'العصر': 'العصر_حالة', 'المغرب': 'المغرب_حالة', 'العشاء': 'العشاء_حالة'}
     for p_name, col_name in prayers_map.items():
         status = row.get(col_name)
         if status == 'جماعة (مسجد)': score += 10
         elif status == 'في الوقت (بيت)': score += 6
         if p_name != 'العصر':
             if row.get(f"{p_name}_سنة") == 'نعم': score += 3
-
     if row.get('الضحى') == 'نعم': score += 5
-
-    # 2. الأذكار
+    # الأذكار
     if row.get('أذكار_الصباح') == 'نعم': score += 3
     if row.get('أذكار_المساء') == 'نعم': score += 3
     if row.get('أذكار_الصلاة') == 'نعم': score += 3
     if row.get('أذكار_النوم') == 'نعم': score += 3 
     if row.get('سورة_الملك') == 'نعم': score += 5 
-
-    # 3. الباقي
+    # الباقي
     if str(row.get('قيام')) not in ["0", "لا", "", "None"]: score += 8
     if str(row.get('القرآن')) not in ["0", "لا", "", "None"]: score += 8
     if row.get('الصيام') == 'نعم': score += 10
@@ -167,11 +260,9 @@ def calculate_score(row):
     if row.get('أسرة') == 'نعم': score += 4
     if row.get('قراءة') == 'نعم': score += 4
     if row.get('زيارة') == 'نعم': score += 4
-
-    # 4. بونص الجمعة
+    # الجمعة
     if row.get('جمعة_كهف') == 'نعم': score += 15
     if row.get('جمعة_صلاة_نبي') == 'نعم': score += 15
-    
     return min(score, 145)
 
 def get_level_and_rank(total_points):
@@ -183,7 +274,7 @@ def get_level_and_rank(total_points):
     return level, title
 
 # ==========================================
-# 📊 تجهيز البيانات (مع فلترة المجموعة)
+# 📊 تجهيز البيانات
 # ==========================================
 current_user = st.session_state["user_name"]
 current_group = st.session_state["user_group"]
@@ -205,7 +296,6 @@ if not full_df.empty:
         full_df['Score'] = full_df.apply(calculate_score, axis=1)
         full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
         
-        # 🔥 فلترة البيانات حسب المجموعة
         if current_group != "الإدارة":
             group_df = full_df[full_df['المجموعة'] == current_group].copy()
         else:
@@ -243,122 +333,148 @@ if not full_df.empty:
                     daily_champion_score = daily_leaderboard.iloc[0]['Score']
 
 # ==========================================
-# 🖥️ الواجهة
+# 🖥️ الواجهة الرئيسية (Main Dashboard)
 # ==========================================
-col_h1, col_h2 = st.columns([6, 1])
-with col_h1: 
-    st.title(f"مرحباً {current_user} 🌟")
-    st.caption(f"📍 أنت في: {current_group}")
-with col_h2: 
-    if st.button("🚪 خروج", type="primary"): st.session_state["authenticated"] = False; st.rerun()
 
-st.markdown(f"<div style='background-color: #d4edda; color: #155724; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 20px;'><b>{daily_quote['text']}</b> <br><small>— {daily_quote['source']}</small></div>", unsafe_allow_html=True)
+# الشريط العلوي
+col_logo, col_title, col_logout = st.columns([1, 4, 1])
+with col_title:
+    st.markdown(f"<h1 style='text-align: center; color: #009688;'>🏆 {current_group} 🏆</h1>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center;'>مرحباً بالمجتهد <b>{current_user}</b></p>", unsafe_allow_html=True)
+with col_logout:
+    st.write("")
+    if st.button("🚪 خروج", key="logout_btn"): st.session_state["authenticated"] = False; st.rerun()
 
-is_friday = datetime.today().weekday() == 4
-if is_friday:
-    st.markdown("""<div style="border: 2px solid #28a745; background-color: #e6fffa; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;"><h3 style="color: #28a745; margin:0;">🕌 جمعة مباركة! لا تنس سنن اليوم 🕌</h3></div>""", unsafe_allow_html=True)
-
+# البطاقات الإحصائية (Cards)
 st.markdown("---")
-col_champ, col_ideas = st.columns([1, 2])
-with col_champ:
-    st.markdown(f"""
-    <div style="background-color: #fff3cd; border: 2px solid #ffeeba; border-radius: 10px; padding: 20px; text-align: center;">
-        <h4 style="margin:0; color: #856404;">📅 بطل الأسبوع ({current_group})</h4>
-        <h2 style="color: #856404; margin: 10px 0;">{weekly_champion_name}</h2>
-        <p style="font-size: 1.1em;">{weekly_champion_score} نقطة</p>
-    </div>
-    """, unsafe_allow_html=True)
-with col_ideas:
-    with st.expander("💡 خيارات الفائز", expanded=True):
-        st.write(f"القرار عند **{weekly_champion_name}**:")
-        c1, c2, c3 = st.columns(3)
-        with c1: 
-            st.info("**❤️ خيري**")
-            for i in WEEKLY_IDEAS["❤️ عمل خيري"]: st.write(f"- {i}")
-        with c2: 
-            st.warning("**🍉 طعام**")
-            for i in WEEKLY_IDEAS["🍉 طعام"]: st.write(f"- {i}")
-        with c3: 
-            st.success("**⚽ ترفيه**")
-            for i in WEEKLY_IDEAS["⚽ ترفيه"]: st.write(f"- {i}")
+c1, c2, c3 = st.columns(3)
+with c1:
+    st.markdown(f"""<div class="metric-card"><h3>🥇 الترتيب</h3><h1 style="color:#009688;">#{my_rank}</h1></div>""", unsafe_allow_html=True)
+with c2:
+    st.markdown(f"""<div class="metric-card"><h3>🛡️ المستوى</h3><h1 style="color:#FBC02D;">{my_level}</h1><small>{get_level_and_rank(my_total_xp)[1]}</small></div>""", unsafe_allow_html=True)
+with c3:
+    st.markdown(f"""<div class="metric-card"><h3>✨ النقاط</h3><h1 style="color:#1565C0;">{my_total_xp}</h1></div>""", unsafe_allow_html=True)
 
-st.markdown("---")
-st.info(f"🏅 **ترتيبك: #{my_rank}** | 🛡️ **مستوى {my_level}** | ✨ **نقاط: {my_total_xp}**")
-progress = 1 - (((my_level * 500) - my_total_xp) / 500)
-st.progress(max(0.0, min(1.0, progress)), text=f"باقي {(my_level * 500) - my_total_xp} نقطة")
+# شريط التقدم
+points_next_level = (my_level * 500) - my_total_xp
+progress = 1 - (points_next_level / 500)
+st.markdown("<br>", unsafe_allow_html=True)
+st.progress(max(0.0, min(1.0, progress)), text=f"🚀 باقي {points_next_level} نقطة للوصول للمستوى التالي")
 
-# --- التبويبات (هنا كان الخطأ وتم إصلاحه) ---
-tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 لوحة مجموعتي", "📊 سجلي"])
+# اقتباس اليوم
+st.markdown(f"""
+<div style="background-color: #e0f2f1; padding: 15px; border-radius: 10px; margin: 20px 0; border-right: 5px solid #009688;">
+    <h4 style="margin:0; color: #00695c;">🌿 حكمة اليوم</h4>
+    <p style="font-size: 1.1em; margin-top:5px;"><i>"{daily_quote['text']}"</i> <br><span style="font-size:0.8em; color:#666;">— {daily_quote['source']}</span></p>
+</div>
+""", unsafe_allow_html=True)
 
+# بطل الأسبوع
+st.markdown(f"""
+<div class="champion-box">
+    <h3 style="margin:0;">👑 بطل الأسبوع</h3>
+    <h1 style="font-size: 2.5em; margin: 10px 0;">{weekly_champion_name}</h1>
+    <p>مجموع {weekly_champion_score} نقطة هذا الأسبوع</p>
+</div>
+""", unsafe_allow_html=True)
+
+with st.expander("🎁 انقر هنا لرؤية جائزة البطل (الاختيار)", expanded=False):
+    c1, c2, c3 = st.columns(3)
+    with c1: 
+        st.info("**❤️ خيري**")
+        for i in WEEKLY_IDEAS["❤️ عمل خيري"]: st.write(f"- {i}")
+    with c2: 
+        st.warning("**🍉 طعام**")
+        for i in WEEKLY_IDEAS["🍉 طعام"]: st.write(f"- {i}")
+    with c3: 
+        st.success("**⚽ ترفيه**")
+        for i in WEEKLY_IDEAS["⚽ ترفيه"]: st.write(f"- {i}")
+
+# --- التبويبات ---
+st.markdown("<br>", unsafe_allow_html=True)
+tab1, tab2, tab3 = st.tabs(["📝 تسجيل إنجاز اليوم", "🏆 لوحة الصدارة", "📊 سجلي الشخصي"])
+
+# === تبويب التسجيل ===
 with tab1:
+    st.markdown("### 🤲 اللهم تقبل منا")
+    
+    is_friday = datetime.today().weekday() == 4
+    if is_friday:
+        st.success("🕌 اليوم الجمعة! لا تنس السنن الإضافية")
+    
     with st.form("entry_form"):
+        # الجمعة
         if is_friday:
-            st.markdown("### 🕌 سنن الجمعة")
-            cf1, cf2 = st.columns(2)
-            kahf = cf1.checkbox("📖 سورة الكهف (+15)")
-            salat_nabi = cf2.checkbox("📿 الصلاة على النبي 100 مرة (+15)")
-            st.write("---")
+            col_f1, col_f2 = st.columns(2)
+            kahf = col_f1.checkbox("📖 قراءة سورة الكهف (+15)")
+            salat_nabi = col_f2.checkbox("📿 الصلاة على النبي 100 مرة (+15)")
+            st.markdown("---")
         else:
             kahf = False; salat_nabi = False
 
-        st.write("### 🕌 الصلوات")
-        status_opts = ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"]
-        
-        c_p1, c_p2, c_p3 = st.columns(3)
-        with c_p1:
-            fajr_st = st.selectbox("الفجر", status_opts, key="fs")
-            fajr_sn = st.checkbox("سنة الفجر", key="fsn")
-        with c_p2:
+        # الصلوات
+        st.markdown("##### 🕌 الصلوات المفروضة")
+        col_p1, col_p2, col_p3 = st.columns(3)
+        with col_p1:
+            st.markdown("**الفجر**")
+            fajr_st = st.selectbox("الحالة", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="fs", label_visibility="collapsed")
+            fajr_sn = st.checkbox("السنة الراتبة", key="fsn")
+        with col_p2:
+            st.markdown("**الظهر**")
+            dhuhr_st = st.selectbox("الحالة", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="ds", label_visibility="collapsed")
+            dhuhr_sn = st.checkbox("السنة الراتبة", key="dsn")
+        with col_p3:
+            st.markdown("**العصر**")
+            asr_st = st.selectbox("الحالة", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="as", label_visibility="collapsed")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_p4, col_p5, col_p6 = st.columns(3)
+        with col_p4:
+            st.markdown("**المغرب**")
+            mag_st = st.selectbox("الحالة", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="ms", label_visibility="collapsed")
+            mag_sn = st.checkbox("السنة الراتبة", key="msn")
+        with col_p5:
+            st.markdown("**العشاء**")
+            isha_st = st.selectbox("الحالة", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="is", label_visibility="collapsed")
+            isha_sn = st.checkbox("السنة الراتبة", key="isn")
+        with col_p6:
             st.markdown("**☀️ الضحى**")
             duha = st.checkbox("ركعتا الضحى (+5)", key="duha")
-        with c_p3:
-            st.write("") 
-            
-        c_p4, c_p5, c_p6 = st.columns(3)
-        with c_p4:
-            dhuhr_st = st.selectbox("الظهر", status_opts, key="ds")
-            dhuhr_sn = st.checkbox("سنة الظهر", key="dsn")
-        with c_p5:
-            asr_st = st.selectbox("العصر", status_opts, key="as")
-        with c_p6:
-            mag_st = st.selectbox("المغرب", status_opts, key="ms")
-            mag_sn = st.checkbox("سنة المغرب", key="msn")
-            
-        st.write("---")
-        c_isha1, c_isha2 = st.columns(2)
-        with c_isha1:
-            isha_st = st.selectbox("العشاء", status_opts, key="is")
-            isha_sn = st.checkbox("سنة العشاء", key="isn")
-        
-        st.write("---")
-        st.write("#### 📿 الأذكار والقرآن")
+
+        st.markdown("---")
+        st.markdown("##### 📿 الأذكار والقرآن")
         c_az1, c_az2, c_az3, c_az4 = st.columns(4)
         az_m = c_az1.checkbox("أذكار الصباح")
         az_e = c_az2.checkbox("أذكار المساء")
         az_p = c_az3.checkbox("أذكار الصلاة")
+        
         with c_az4:
-            st.markdown("**النوم**")
             az_s = st.checkbox("أذكار النوم")
-            mulk = st.checkbox("سورة الملك 🛡️")
+            mulk = st.checkbox("سورة الملك")
 
-        st.write("")
+        st.markdown("<br>", unsafe_allow_html=True)
         c_q1, c_q2 = st.columns(2)
-        qiyam = c_q1.select_slider("قيام الليل", ["0", "2", "4", "6", "8", "أكثر"], "0")
-        quran = c_q2.select_slider("الورد", ["0", "وجه", "ربع", "نصف", "حزب", "جزء"], "0")
+        qiyam = c_q1.select_slider("قيام الليل (ركعات)", ["0", "2", "4", "6", "8", "أكثر"], "0")
+        quran = c_q2.select_slider("الورد القرآني", ["0", "وجه", "ربع", "نصف", "حزب", "جزء"], "0")
 
-        st.write("#### 🌱 أعمال")
+        st.markdown("---")
+        st.markdown("##### 🌱 أعمال البر")
         cc1, cc2, cc3, cc4, cc5 = st.columns(5)
         fasting = cc1.checkbox("صيام")
-        majlis = cc2.checkbox("مجلس")
-        family = cc3.checkbox("أسرة")
-        read = cc4.checkbox("قراءة")
-        visit = cc5.checkbox("زيارة")
+        majlis = cc2.checkbox("مجلس علم")
+        family = cc3.checkbox("بر الأسرة")
+        read = cc4.checkbox("قراءة نافعة")
+        visit = cc5.checkbox("زيارة/صلة")
 
-        if st.form_submit_button("✅ حفظ"):
+        st.markdown("<br>", unsafe_allow_html=True)
+        submit = st.form_submit_button("✅ حفظ الأعمال", use_container_width=True)
+
+        if submit:
             day_date = datetime.now().strftime("%Y-%m-%d")
             user_specific_df = full_df[full_df['الاسم'] == current_user] if not full_df.empty else pd.DataFrame()
+            
             if not user_specific_df.empty and day_date in user_specific_df['التاريخ'].astype(str).values:
-                st.error(f"⛔ مسجل مسبقاً ({day_date}).")
+                st.error(f"⛔ لقد قمت بتسجيل يوم {day_date} مسبقاً")
             else:
                 row = [
                     day_date, current_user, current_group,
@@ -375,34 +491,37 @@ with tab1:
                 ]
                 with st.spinner("جاري الحفظ..."):
                     sheet_data.append_row(row)
-                    st.success(f"تم الحفظ في {current_group}!")
-                    time.sleep(1)
+                    st.balloons() # تأثير احتفالي عند الحفظ
+                    st.toast("تم حفظ إنجازك بنجاح! تقبل الله", icon="✅")
+                    time.sleep(2)
                     st.rerun()
 
+# === تبويب الترتيب ===
 with tab2:
+    st.markdown("### 📊 لوحة الصدارة")
     t2_1, t2_2, t2_3 = st.tabs(["🥇 العام", "📅 الأسبوعي", "🌟 اليومي"])
+    
     with t2_1: 
         if not leaderboard.empty:
             st.dataframe(leaderboard[['الترتيب', 'الاسم', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True)
-        else:
-            st.info("لا توجد بيانات لهذه المجموعة بعد.")
+        else: st.info("لا توجد بيانات بعد")
 
     with t2_2: 
         if not weekly_leaderboard.empty:
             st.dataframe(weekly_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
-        else:
-            st.info("بداية أسبوع جديدة.")
+        else: st.info("بداية أسبوع جديدة")
 
     with t2_3: 
         if not daily_leaderboard.empty: 
             st.dataframe(daily_leaderboard[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
             st.success(f"نجم اليوم: {daily_champion_name}")
-        else:
-            st.info("لم يسجل أحد اليوم.")
+        else: st.info("لم يسجل أحد اليوم")
 
+# === تبويب السجل ===
 with tab3:
+    st.markdown("### 📈 سجلي البياني")
     if not full_df.empty and current_user in full_df['الاسم'].values:
         my_hist = full_df[full_df['الاسم'] == current_user]
-        st.line_chart(my_hist.set_index("التاريخ")['Score'])
+        st.area_chart(my_hist.set_index("التاريخ")['Score'], color="#009688")
         st.dataframe(my_hist, use_container_width=True)
-    else: st.info("سجلك فارغ.")
+    else: st.info("ليس لديك سجلات سابقة")
