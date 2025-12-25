@@ -16,30 +16,32 @@ st.set_page_config(page_title="سباق الصالحين", layout="wide", page_i
 MY_PASSWORD = "Taqwa@2025@Secret!"
 
 # ==========================================
-# 📋 عناوين الأعمدة (HEADERS) - النظام الجديد
+# 📋 عناوين الأعمدة (HEADERS) - تمت الإضافة
 # ==========================================
-# هذه القائمة هي المرجع الأساسي لترتيب الأعمدة في ملف الإكسل
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم",
     "الفجر_حالة", "الفجر_سنة",
+    "الضحى",  # << جديد: صلاة الضحى
     "الظهر_حالة", "الظهر_سنة",
     "العصر_حالة",
     "المغرب_حالة", "المغرب_سنة",
     "العشاء_حالة", "العشاء_سنة",
-    "أذكار_الصباح", "أذكار_المساء", "أذكار_الصلاة",
-    "قيام", "القرآن", "الصيام", "مجلس", "أسرة", "قراءة", "زيارة"
+    "أذكار_الصباح", "أذكار_المساء", "أذكار_الصلاة", 
+    "أذكار_النوم", "سورة_الملك", # << جديد: سورة الملك
+    "قيام", "القرآن", "الصيام", "مجلس", "أسرة", "قراءة", "زيارة",
+    "جمعة_كهف", "جمعة_صلاة_نبي"
 ]
 
 # ==========================================
 # 💎 مكتبة التحفيز
 # ==========================================
 MOTIVATIONAL_QUOTES = [
+    {"text": "يُصْبِحُ عَلَى كُلِّ سُلَامَى (مفصل) مِنْ أَحَدِكُمْ صَدَقَةٌ... وَيُجْزِئُ مِنْ ذَلِكَ رَكْعَتَانِ يَرْكَعُهُمَا مِنَ الضُّحَى", "source": "حديث شريف"},
+    {"text": "سورة تبارك هي المانعة من عذاب القبر", "source": "حديث شريف"},
+    {"text": "إِنَّ اللَّهَ وَمَلَائِكَتَهُ يُصَلُّونَ عَلَى النَّبِيِّ", "source": "الأحزاب: 56"},
+    {"text": "من قرأ سورة الكهف يوم الجمعة أضاء له من النور ما بين الجمعتين", "source": "حديث شريف"},
     {"text": "وَسَارِعُوا إِلَىٰ مَغْفِرَةٍ مِّن رَّبِّكُمْ", "source": "آل عمران: 133"},
-    {"text": "فَاسْتَبِقُوا الْخَيْرَاتِ", "source": "البقرة: 148"},
-    {"text": "أحب الأعمال إلى الله أدومها وإن قل", "source": "حديث شريف"},
-    {"text": "الدال على الخير كفاعله", "source": "حديث شريف"},
-    {"text": "من صلى البردين دخل الجنة", "source": "حديث شريف"},
-    {"text": "ركعتا الفجر خير من الدنيا وما فيها", "source": "حديث شريف"}
+    {"text": "أحب الأعمال إلى الله أدومها وإن قل", "source": "حديث شريف"}
 ]
 daily_quote = random.choice(MOTIVATIONAL_QUOTES)
 
@@ -80,18 +82,15 @@ try:
     sh = client.open_by_url(spreadsheet_url)
     sheet_data = sh.sheet1 
     
-    # 🔥🔥🔥 التصحيح التلقائي لملف الإكسل (جديد) 🔥🔥🔥
-    # هذا الكود يفحص السطر الأول، إذا كان فارغاً أو خطأ، يقوم بإصلاحه فوراً
+    # 🔥 التصحيح التلقائي للعناوين
     try:
         current_headers = sheet_data.row_values(1)
         if not current_headers or current_headers != EXPECTED_HEADERS:
-            # إذا كانت العناوين مختلفة، قم بتحديث السطر الأول فقط
-            # تنبيه: هذا لا يمسح البيانات القديمة، فقط يصحح العناوين
             sheet_data.delete_rows(1)
             sheet_data.insert_row(EXPECTED_HEADERS, 1)
-            st.toast("✅ تم تحديث هيكل قاعدة البيانات تلقائياً!", icon="🛠️")
+            st.toast("✅ تم إضافة الضحى والملك للقائمة!", icon="✨")
     except Exception as e:
-        st.warning(f"ملاحظة: لم نتمكن من التحقق من العناوين: {e}")
+        st.warning(f"ملاحظة: {e}")
 
 except Exception as e:
     st.error(f"خطأ في فتح الملف: {e}")
@@ -126,29 +125,28 @@ if not st.session_state["authenticated"]:
 # ==========================================
 def calculate_score(row):
     score = 0
-    # استخدام أسماء الأعمدة الجديدة للبحث في البيانات
-    # ملاحظة: pandas تستخدم أسماء الأعمدة كما هي في EXPECTED_HEADERS
     
     # 1. الصلوات
     prayers_map = {
         'الفجر': 'الفجر_حالة', 'الظهر': 'الظهر_حالة', 
         'العصر': 'العصر_حالة', 'المغرب': 'المغرب_حالة', 'العشاء': 'العشاء_حالة'
     }
-    
     for p_name, col_name in prayers_map.items():
         status = row.get(col_name)
         if status == 'جماعة (مسجد)': score += 10
         elif status == 'في الوقت (بيت)': score += 6
-        
-        # السنن (ماعدا العصر)
         if p_name != 'العصر':
-            sunnah_col = f"{p_name}_سنة"
-            if row.get(sunnah_col) == 'نعم': score += 3
+            if row.get(f"{p_name}_سنة") == 'نعم': score += 3
+
+    # الضحى
+    if row.get('الضحى') == 'نعم': score += 5
 
     # 2. الأذكار
     if row.get('أذكار_الصباح') == 'نعم': score += 3
     if row.get('أذكار_المساء') == 'نعم': score += 3
     if row.get('أذكار_الصلاة') == 'نعم': score += 3
+    if row.get('أذكار_النوم') == 'نعم': score += 3 
+    if row.get('سورة_الملك') == 'نعم': score += 5 # سورة الملك
 
     # 3. الباقي
     if str(row.get('قيام')) not in ["0", "لا", "", "None"]: score += 8
@@ -159,8 +157,12 @@ def calculate_score(row):
     if row.get('أسرة') == 'نعم': score += 4
     if row.get('قراءة') == 'نعم': score += 4
     if row.get('زيارة') == 'نعم': score += 4
+
+    # 4. بونص الجمعة
+    if row.get('جمعة_كهف') == 'نعم': score += 15
+    if row.get('جمعة_صلاة_نبي') == 'نعم': score += 15
     
-    return min(score, 100)
+    return min(score, 145) # تعديل الحد الأقصى
 
 def get_level_and_rank(total_points):
     level = 1 + (total_points // 500)
@@ -187,13 +189,11 @@ daily_champion_name = "---"; daily_champion_score = 0
 my_total_xp = 0; my_level = 1; my_rank = "-"
 
 if not full_df.empty:
-    # التأكد من وجود الأعمدة المطلوبة لتجنب الأخطاء
     missing_cols = [c for c in EXPECTED_HEADERS if c not in full_df.columns]
     if not missing_cols:
         full_df['Score'] = full_df.apply(calculate_score, axis=1)
         full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
         
-        # الترتيب العام
         leaderboard = full_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
         leaderboard['المستوى'] = leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[0])
         leaderboard['اللقب'] = leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[1])
@@ -205,7 +205,6 @@ if not full_df.empty:
             my_level = my_stats.iloc[0]['المستوى']
             my_rank = my_stats.iloc[0]['الترتيب']
 
-        # الأسبوعي
         curr_wk = datetime.now().isocalendar()[1]
         curr_yr = datetime.now().year
         weekly_df = full_df[(full_df['DateObj'].dt.isocalendar().week == curr_wk) & (full_df['DateObj'].dt.year == curr_yr)]
@@ -216,7 +215,6 @@ if not full_df.empty:
                 weekly_champion_name = weekly_leaderboard.iloc[0]['الاسم']
                 weekly_champion_score = weekly_leaderboard.iloc[0]['Score']
 
-        # اليومي
         today_str = datetime.now().strftime("%Y-%m-%d")
         daily_df = full_df[full_df['التاريخ'] == today_str]
         if not daily_df.empty:
@@ -235,6 +233,14 @@ with col_h2:
     if st.button("🚪 خروج", type="primary"): st.session_state["authenticated"] = False; st.rerun()
 
 st.markdown(f"<div style='background-color: #d4edda; color: #155724; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 20px;'><b>{daily_quote['text']}</b> <br><small>— {daily_quote['source']}</small></div>", unsafe_allow_html=True)
+
+is_friday = datetime.today().weekday() == 4
+if is_friday:
+    st.markdown("""
+    <div style="border: 2px solid #28a745; background-color: #e6fffa; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+        <h3 style="color: #28a745; margin:0;">🕌 جمعة مباركة! لا تنس سنن اليوم 🕌</h3>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
 col_champ, col_ideas = st.columns([1, 2])
@@ -270,6 +276,16 @@ tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 اللوحات",
 
 with tab1:
     with st.form("entry_form"):
+        if is_friday:
+            st.markdown("### 🕌 سنن الجمعة")
+            cf1, cf2 = st.columns(2)
+            kahf = cf1.checkbox("📖 سورة الكهف (+15)")
+            salat_nabi = cf2.checkbox("📿 الصلاة على النبي 100 مرة (+15)")
+            st.write("---")
+        else:
+            kahf = False
+            salat_nabi = False
+
         st.write("### 🕌 الصلوات")
         status_opts = ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"]
         
@@ -278,27 +294,40 @@ with tab1:
             fajr_st = st.selectbox("الفجر", status_opts, key="fs")
             fajr_sn = st.checkbox("سنة الفجر", key="fsn")
         with c_p2:
+            st.markdown("**☀️ الضحى**")
+            duha = st.checkbox("ركعتا الضحى (+5)", key="duha") # الضحى هنا
+        with c_p3:
+            st.write("") # فراغ لتنسيق العمود
+            
+        c_p4, c_p5, c_p6 = st.columns(3)
+        with c_p4:
             dhuhr_st = st.selectbox("الظهر", status_opts, key="ds")
             dhuhr_sn = st.checkbox("سنة الظهر", key="dsn")
-        with c_p3:
+        with c_p5:
             asr_st = st.selectbox("العصر", status_opts, key="as")
-            
-        st.write("---")
-        c_p4, c_p5, dum = st.columns(3)
-        with c_p4:
+        with c_p6:
             mag_st = st.selectbox("المغرب", status_opts, key="ms")
             mag_sn = st.checkbox("سنة المغرب", key="msn")
-        with c_p5:
+            
+        st.write("---")
+        c_isha1, c_isha2 = st.columns(2)
+        with c_isha1:
             isha_st = st.selectbox("العشاء", status_opts, key="is")
             isha_sn = st.checkbox("سنة العشاء", key="isn")
-
+        
         st.write("---")
-        st.write("#### 📿 الروحانيات")
-        c_az1, c_az2, c_az3 = st.columns(3)
+        st.write("#### 📿 الأذكار والقرآن")
+        c_az1, c_az2, c_az3, c_az4 = st.columns(4)
         az_m = c_az1.checkbox("أذكار الصباح")
         az_e = c_az2.checkbox("أذكار المساء")
         az_p = c_az3.checkbox("أذكار الصلاة")
         
+        # تجميع أذكار النوم مع سورة الملك
+        with c_az4:
+            st.markdown("**النوم**")
+            az_s = st.checkbox("أذكار النوم")
+            mulk = st.checkbox("سورة الملك 🛡️") # سورة الملك
+
         st.write("")
         c_q1, c_q2 = st.columns(2)
         qiyam = c_q1.select_slider("قيام الليل", ["0", "2", "4", "6", "8", "أكثر"], "0")
@@ -321,13 +350,16 @@ with tab1:
                 row = [
                     day_date, current_user,
                     fajr_st, "نعم" if fajr_sn else "لا",
+                    "نعم" if duha else "لا", # الضحى
                     dhuhr_st, "نعم" if dhuhr_sn else "لا",
                     asr_st,
                     mag_st, "نعم" if mag_sn else "لا",
                     isha_st, "نعم" if isha_sn else "لا",
                     "نعم" if az_m else "لا", "نعم" if az_e else "لا", "نعم" if az_p else "لا",
+                    "نعم" if az_s else "لا", "نعم" if mulk else "لا", # النوم والملك
                     qiyam, quran, "نعم" if fasting else "لا", "نعم" if majlis else "لا",
-                    "نعم" if family else "لا", "نعم" if read else "لا", "نعم" if visit else "لا"
+                    "نعم" if family else "لا", "نعم" if read else "لا", "نعم" if visit else "لا",
+                    "نعم" if kahf else "لا", "نعم" if salat_nabi else "لا"
                 ]
                 with st.spinner("جاري الحفظ..."):
                     sheet_data.append_row(row)
