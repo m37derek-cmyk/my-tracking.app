@@ -88,7 +88,7 @@ GROUPS_CONFIG = {
 # ==========================================
 # 📋 عناوين الأعمدة
 # ==========================================
-# ⚠️ تم استبدال "زيارة" بـ "التعهد" و "مجلس" بـ "قراءة_كتاب"
+# ⚠️ يجب أن تتطابق هذه الأسماء تماماً مع الصف الأول في Google Sheet
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم", "المجموعة",
     "الفجر_حالة", "الفجر_سنة", "الضحى", 
@@ -138,7 +138,6 @@ def get_client():
         st.stop()
 
 client = get_client()
-# ⚠️ تأكد من وضع رابط الشيت الصحيح هنا
 spreadsheet_url = "https://docs.google.com/spreadsheets/d/1XqSb4DmiUEd-mt9WMlVPTow7VdeYUI2O870fsgrZx-0/edit?gid=0#gid=0"
 
 try:
@@ -226,9 +225,7 @@ def calculate_score(row):
     qiyam_points = {"ركعتان": 3, "٤ ركعات": 5, "٦ ركعات": 7, "٨ ركعات": 10}
     score += qiyam_points.get(qiyam_val, 0)
 
-    # أعمال البر - ⚠️ تم التعديل هنا
-    # تم تغيير 'مجلس' بـ 'قراءة_كتاب'
-    # تم تغيير 'زيارة' بـ 'التعهد'
+    # أعمال البر
     good_deeds = ['الصيام', 'قراءة_كتاب', 'أسرة', 'قراءة', 'التعهد']
     points_deed = {'الصيام': 10, 'قراءة_كتاب': 4, 'أسرة': 4, 'قراءة': 4, 'التعهد': 4}
     
@@ -266,9 +263,18 @@ my_level = 1
 my_rank = "-"
 group_df = pd.DataFrame() 
 
+# ⚠️ نظام حماية لمنع الخطأ عند عدم تطابق الأعمدة
+missing_cols = []
 if not full_df.empty:
     missing_cols = [c for c in EXPECTED_HEADERS if c not in full_df.columns]
-    if not missing_cols:
+    
+    if missing_cols:
+        st.error(f"⚠️ **خطأ في قاعدة البيانات:** يرجى تحديث أسماء الأعمدة في ملف Google Sheet لتطابق الكود.")
+        st.error(f"الأعمدة المفقودة أو التي تغير اسمها: {missing_cols}")
+        st.info("💡 الحل: اذهب لملف الإكسل وغير 'مجلس' إلى 'قراءة_كتاب' و 'زيارة' إلى 'التعهد'.")
+        st.stop() # يوقف التطبيق بأمان بدلاً من الانهيار
+    else:
+        # إذا كانت الأعمدة صحيحة، نكمل الحسابات
         full_df['Score'] = full_df.apply(calculate_score, axis=1)
         full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
         
@@ -381,11 +387,11 @@ with tab1:
         st.markdown("##### 🌱 أعمال البر")
         cc1, cc2, cc3, cc4, cc5 = st.columns(5)
         inputs['fasting'] = cc1.checkbox("صيام تطوع")
-        # ⚠️ قراءة كتاب بدلاً من مجلس
+        # ⚠️ قراءة كتاب
         inputs['book_read'] = cc2.checkbox("قراءة كتاب")
         inputs['family'] = cc3.checkbox("بر الأسرة")
         inputs['read'] = cc4.checkbox("قراءة نافعة")
-        # ⚠️ التعهد بدلاً من الزيارة
+        # ⚠️ التعهد
         inputs['taahod'] = cc5.checkbox("التعهد")
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -450,7 +456,7 @@ with tab2:
     
     # 1. الترتيب العام
     with t2_1:
-        if not display_df.empty:
+        if not display_df.empty and 'Score' in display_df.columns:
             gen_leaderboard = display_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
             gen_leaderboard['المستوى'] = gen_leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[0])
             gen_leaderboard['اللقب'] = gen_leaderboard['Score'].apply(lambda x: get_level_and_rank(x)[1])
@@ -462,11 +468,11 @@ with tab2:
                 hide_index=True
             )
         else:
-            st.info("لا توجد بيانات لهذه المجموعة.")
+            st.info("لا توجد بيانات لهذه المجموعة (أو لم يتم حساب النقاط).")
 
     # 2. الترتيب الأسبوعي
     with t2_2:
-        if not display_df.empty:
+        if not display_df.empty and 'Score' in display_df.columns:
             curr_wk = datetime.now().isocalendar()[1]
             curr_yr = datetime.now().year
             
@@ -496,7 +502,7 @@ with tab2:
 # --- تبويب 3: السجل (رسم بياني زمني) ---
 with tab3:
     st.markdown("### 📈 سجلي البياني")
-    if not full_df.empty and current_user in full_df['الاسم'].values:
+    if not full_df.empty and current_user in full_df['الاسم'].values and 'Score' in full_df.columns:
         my_hist = full_df[full_df['الاسم'] == current_user].copy()
         
         # التأكد من صحة التواريخ والترتيب
