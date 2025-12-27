@@ -8,17 +8,17 @@ import random
 import time
 
 # ==========================================
-# 1. CONFIGURATION DE LA PAGE (MOBILE & SEO)
+# 1. CONFIGURATION DE LA PAGE
 # ==========================================
 st.set_page_config(
-    page_title="سباق الصالحين", # Le nom qui apparaitra sous l'icône sur Android/iOS
-    page_icon="🕌",            # L'icône par défaut (ou mettez "logo.png" si vous avez le fichier)
+    page_title="سباق الصالحين",
+    page_icon="🕌",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 # ==========================================
-# 2. DESIGN & CSS (LOOK "APPLICATION")
+# 2. DESIGN & CSS
 # ==========================================
 st.markdown("""
 <style>
@@ -31,12 +31,12 @@ st.markdown("""
     
     .stApp { background-color: #f8f9fa; }
 
-    /* --- Cacher l'interface Streamlit (Menu, Footer, Header) --- */
+    /* Cacher l'interface Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* --- Styles Personnalisés --- */
+    /* Styles Personnalisés */
     .quote-box {
         background-color: #e0f2f1;
         border-right: 5px solid #009688;
@@ -131,12 +131,21 @@ MOTIVATIONAL_QUOTES = [
 ]
 daily_quote_data = random.choice(MOTIVATIONAL_QUOTES)
 
+# ⚠️ NOUVEAUX GROUPES AJOUTÉS ICI
 GROUPS_CONFIG = {
     "مجموعة الفردوس": "Firdaws@786!Top",
     "مجموعة الريان": "Rayyan#2025$Win",
-    "مجموعة الفجر": "Fajr@Simple22",  # المجموعة المبسطة
+    
+    # Groupes simplifiés
+    "مجموعة الفجر": "Fajr@Simple22", 
+    "مجموعة النور": "Noor@Light55", 
+    "مجموعة الهدى": "Huda@Guide77",
+    
     "الإدارة": "Admin@MasterKey99!"
 }
+
+# ⚠️ LISTE DES GROUPES QUI ONT UNE VUE SIMPLIFIÉE
+SIMPLIFIED_GROUPS = ["مجموعة الفجر", "مجموعة النور", "مجموعة الهدى"]
 
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم", "المجموعة",
@@ -305,7 +314,7 @@ if not full_df.empty:
             try:
                 with st.spinner("جاري التحديث..."):
                     sheet_data.update('A1', [EXPECTED_HEADERS])
-                    st.success("✅ تم الإصلاح! أعد التحميل.")
+                    st.success("✅ تم الإصلاح بنجاح! جاري إعادة التحميل...")
                     time.sleep(2)
                     st.rerun()
             except Exception as e:
@@ -427,11 +436,13 @@ with tab1:
                 st.markdown("**🌙 القرآن**")
                 inputs['quran'] = st.selectbox("الورد القرآني", options=["0", "ثمن", "ربع", "نصف", "حزب", "حزبين"])
                 
-                # ⚠️ Qiyam masqué pour Fajr
-                if current_group != "مجموعة الفجر":
+                # ⚠️ Qiyam masqué pour les Groupes Simplifiés (Fajr, Noor, Huda)
+                if current_group not in SIMPLIFIED_GROUPS:
                     st.markdown("**🌙 قيام الليل**")
                     inputs['qiyam'] = st.selectbox("قيام الليل", options=["0", "ركعتان", "4 ركعات", "6 ركعات", "8 ركعات"])
-                
+                else:
+                    inputs['qiyam'] = "0"
+
                 if is_friday:
                     st.markdown("---")
                     cf1, cf2 = st.columns(2)
@@ -440,8 +451,8 @@ with tab1:
                 else:
                     kahf = False; salat_nabi = False
 
-        # 3. Bonnes Actions (⚠️ Masqué pour Fajr)
-        if current_group != "مجموعة الفجر":
+        # 3. Bonnes Actions (⚠️ Masqué pour Groupes Simplifiés)
+        if current_group not in SIMPLIFIED_GROUPS:
             with st.expander("🌱 أعمال البر", expanded=False):
                 b1, b2, b3, b4, b5 = st.columns(5)
                 inputs['fasting'] = b1.checkbox("صيام تطوع")
@@ -501,7 +512,8 @@ with tab2:
     
     target_group = current_group
     if current_group == "الإدارة":
-        target_group = st.selectbox("🔍 عرض مجموعة:", ["مجموعة الفردوس", "مجموعة الريان", "مجموعة الفجر"])
+        # Admin voit tous les groupes, y compris les nouveaux
+        target_group = st.selectbox("🔍 عرض مجموعة:", ["مجموعة الفردوس", "مجموعة الريان", "مجموعة الفجر", "مجموعة النور", "مجموعة الهدى"])
     
     if not full_df.empty:
         display_df = full_df[full_df['المجموعة'] == target_group].copy()
