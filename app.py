@@ -72,6 +72,13 @@ st.markdown("""
         width: 100%;
     }
     
+    .streamlit-expanderHeader {
+        background-color: white;
+        border-radius: 10px;
+        font-weight: bold;
+        color: #333;
+    }
+    
     .missed-container {
         background-color: #fff5f5;
         border: 1px solid #ffcdd2;
@@ -233,7 +240,6 @@ def safe_str(val):
 
 def calculate_score(row):
     score = 0
-    # Prières
     prayers_map = {'الفجر': 'الفجر_حالة', 'الظهر': 'الظهر_حالة', 'العصر': 'العصر_حالة', 'المغرب': 'المغرب_حالة', 'العشاء': 'العشاء_حالة'}
     for p_name, col_name in prayers_map.items():
         status = safe_str(row.get(col_name))
@@ -243,13 +249,11 @@ def calculate_score(row):
             if safe_str(row.get(f"{p_name}_سنة")) == 'نعم': score += 3
     if safe_str(row.get('الضحى')) == 'نعم': score += 5
     
-    # Adhkar
     chk_list = ['أذكار_الصباح', 'أذكار_المساء', 'أذكار_الصلاة', 'أذكار_النوم']
     for chk in chk_list:
         if safe_str(row.get(chk)) == 'نعم': score += 3
     if safe_str(row.get('سورة_الملك')) == 'نعم': score += 5
     
-    # Quran & Qiyam
     quran_val = safe_str(row.get('القرآن'))
     quran_points = {"ثمن": 2, "ربع": 4, "نصف": 6, "حزب": 8, "حزبين": 10}
     score += quran_points.get(quran_val, 0)
@@ -258,13 +262,11 @@ def calculate_score(row):
     qiyam_points = {"ركعتان": 3, "4 ركعات": 5, "6 ركعات": 7, "8 ركعات": 10}
     score += qiyam_points.get(qiyam_val, 0)
 
-    # Bonnes Actions
     good_deeds = ['الصيام', 'قراءة_كتاب', 'أسرة', 'مجلس التدارس', 'التعهد']
     points_deed = {'الصيام': 10, 'قراءة_كتاب': 4, 'أسرة': 4, 'مجلس التدارس': 4, 'التعهد': 4}
     for deed in good_deeds:
         if safe_str(row.get(deed)) == 'نعم': score += points_deed[deed]
 
-    # Vendredi
     if safe_str(row.get('جمعة_كهف')) == 'نعم': score += 15
     if safe_str(row.get('جمعة_صلاة_نبي')) == 'نعم': score += 15
     
@@ -296,7 +298,6 @@ my_level = 1
 my_rank = "-"
 group_df = pd.DataFrame() 
 
-# --- Auto-fix Columns ---
 if not full_df.empty:
     missing_cols = [c for c in EXPECTED_HEADERS if c not in full_df.columns]
     if missing_cols:
@@ -361,7 +362,14 @@ st.markdown(f"<p style='text-align:center; margin-top:10px; color:#666;'>🚀 ب
 st.progress(progress_val)
 
 st.markdown("<br>", unsafe_allow_html=True)
-tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 لوحة الصدارة", "📈 تطور مستواي"])
+
+# ⚠️ GESTION DES ONGLETS SELON LE GROUPE
+if current_group == "الإدارة":
+    tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 لوحة الصدارة", "📈 تطور مستواي"])
+else:
+    # Pour les utilisateurs normaux : PAS de tab2 (Leaderboard)
+    tab1, tab3 = st.tabs(["📝 تسجيل اليوم", "📈 تطور مستواي"])
+    tab2 = None 
 
 # --- TAB 1 : Enregistrement ---
 with tab1:
@@ -479,12 +487,10 @@ with tab1:
                 except Exception as e:
                     st.error(f"حدث خطأ تقني: {e}")
 
-# --- TAB 2 : Leaderboard ---
-with tab2:
-    st.markdown("### 📊 لوحة الصدارة")
-    target_group = current_group
-    
-    if current_group == "الإدارة":
+# --- TAB 2 : Leaderboard (ONLY FOR ADMIN) ---
+if tab2:
+    with tab2:
+        st.markdown("### 📊 لوحة الصدارة (الإدارة فقط)")
         target_group = st.selectbox("🔍 عرض مجموعة:", ["مجموعة الفردوس", "مجموعة الريان", "مجموعة الفجر", "مجموعة النور", "مجموعة الهدى"])
         t2_1, t2_2, t2_3 = st.tabs(["🥇 الترتيب العام", "📅 الترتيب الأسبوعي", "🕵️‍♂️ تدقيق التفاصيل"])
         
@@ -523,15 +529,12 @@ with tab2:
                 selected_date_audit = st.selectbox("اختر التاريخ:", dates_list)
                 
                 if selected_date_audit:
-                    # Récupérer la ligne complète
                     day_record = user_audit_data[user_audit_data['التاريخ'] == selected_date_audit]
                     day_row = day_record.iloc[0] 
                     
-                    # 1. TABLEAU COMPLET (Excel-like)
                     st.markdown("##### 📄 السجل الكامل:")
                     st.dataframe(day_record, use_container_width=True)
                     
-                    # 2. ANALYSE (STRICTE)
                     st.markdown("##### ⚠️ ملخص التقصيرات (ما لم يتم):")
                     
                     missed_prayers = []
@@ -539,22 +542,19 @@ with tab2:
                     missed_adhkar = []
                     missed_deeds = []
                     
-                    # Logique stricte: si ce n'est pas 'نعم' ou 'جماعة/في الوقت', c'est manqué
-                    # Prières
+                    # Logic
                     if safe_str(day_row['الفجر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("الفجر")
                     if safe_str(day_row['الظهر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("الظهر")
                     if safe_str(day_row['العصر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("العصر")
                     if safe_str(day_row['المغرب_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("المغرب")
                     if safe_str(day_row['العشاء_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("العشاء")
                     
-                    # Sunan
                     if safe_str(day_row['الفجر_سنة']) != 'نعم': missed_sunan.append("سنة الفجر")
                     if safe_str(day_row['الظهر_سنة']) != 'نعم': missed_sunan.append("سنة الظهر")
                     if safe_str(day_row['المغرب_سنة']) != 'نعم': missed_sunan.append("سنة المغرب")
                     if safe_str(day_row['العشاء_سنة']) != 'نعم': missed_sunan.append("سنة العشاء")
                     if safe_str(day_row['الضحى']) != 'نعم': missed_sunan.append("الضحى")
                     
-                    # Adhkar & Quran
                     if safe_str(day_row['أذكار_الصباح']) != 'نعم': missed_adhkar.append("الصباح")
                     if safe_str(day_row['أذكار_المساء']) != 'نعم': missed_adhkar.append("المساء")
                     if safe_str(day_row['أذكار_الصلاة']) != 'نعم': missed_adhkar.append("دبر الصلاة")
@@ -562,14 +562,12 @@ with tab2:
                     if safe_str(day_row['سورة_الملك']) != 'نعم': missed_adhkar.append("سورة الملك")
                     if safe_str(day_row['القرآن']) in ['0', 'لا', '']: missed_adhkar.append("الورد القرآني")
                     
-                    # Deeds (Groupes Standards)
                     if target_group not in SIMPLIFIED_GROUPS:
                         if safe_str(day_row['قيام']) in ['0', 'لا', '']: missed_deeds.append("قيام الليل")
                         if safe_str(day_row['قراءة_كتاب']) != 'نعم': missed_deeds.append("قراءة كتاب")
                         if safe_str(day_row['أسرة']) != 'نعم': missed_deeds.append("بر الأسرة")
                         if safe_str(day_row['التعهد']) != 'نعم': missed_deeds.append("التعهد")
                     
-                    # Affichage par catégorie
                     has_missed = False
                     st.markdown('<div class="missed-container">', unsafe_allow_html=True)
                     
@@ -597,29 +595,6 @@ with tab2:
                         st.success("🎉 ما شاء الله! يوم كامل ومثالي (100%).")
                     
                     st.markdown('</div>', unsafe_allow_html=True)
-
-    else:
-        # Vue Utilisateur
-        if not full_df.empty:
-            display_df = full_df[full_df['المجموعة'] == target_group].copy()
-        else: display_df = pd.DataFrame()
-
-        t2_1, t2_2 = st.tabs(["🥇 الترتيب العام", "📅 الترتيب الأسبوعي"])
-        with t2_1:
-            if not display_df.empty:
-                gen_board = display_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
-                gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
-                gen_board['اللقب'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[1])
-                gen_board.insert(0, 'الترتيب', gen_board.index + 1)
-                st.dataframe(gen_board[['الترتيب', 'الاسم', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True)
-        with t2_2:
-            if not display_df.empty:
-                curr_wk = datetime.now().isocalendar()[1]; curr_yr = datetime.now().year
-                wk_df = display_df[(display_df['DateObj'].dt.isocalendar().week == curr_wk) & (display_df['DateObj'].dt.year == curr_yr)]
-                if not wk_df.empty:
-                    wk_board = wk_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
-                    wk_board.insert(0, 'الترتيب', wk_board.index + 1)
-                    st.dataframe(wk_board[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
 
 # --- TAB 3 : Historique (Anonyme par PIN) ---
 with tab3:
