@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 التصميم (CSS - عربي وتنسيق حديث)
+# 🎨 التصميم (CSS - عربي)
 # ==========================================
 st.markdown("""
 <style>
@@ -27,12 +27,10 @@ st.markdown("""
         direction: rtl;
     }
     
-    /* خلفية هادئة */
     .stApp {
         background-color: #f8f9fa;
     }
 
-    /* بطاقات الإحصائيات */
     .metric-card {
         background-color: white;
         border-radius: 15px;
@@ -42,13 +40,10 @@ st.markdown("""
         text-align: center;
         transition: transform 0.3s ease;
     }
-    .metric-card:hover {
-        transform: translateY(-5px);
-    }
+    .metric-card:hover { transform: translateY(-5px); }
     .metric-card h3 { margin: 0; font-size: 1rem; color: #666; }
     .metric-card h1 { margin: 0; font-size: 2.5rem; color: #009688; font-weight: bold; }
 
-    /* الأزرار */
     .stButton>button {
         background: linear-gradient(135deg, #009688 0%, #00796b 100%);
         color: white !important;
@@ -66,7 +61,6 @@ st.markdown("""
         box-shadow: 0 6px 20px rgba(0, 150, 136, 0.5);
     }
 
-    /* القوائم المنسدلة (Expanders) */
     .streamlit-expanderHeader {
         background-color: white;
         border-radius: 10px;
@@ -75,14 +69,13 @@ st.markdown("""
     }
     
     h1, h2, h3, h4 { color: #2c3e50 !important; }
-    
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔑 إعدادات المجموعات (كلمات المرور)
+# 🔑 إعدادات المجموعات
 # ==========================================
 GROUPS_CONFIG = {
     "مجموعة الفردوس": "Firdaws@786!Top",
@@ -91,7 +84,7 @@ GROUPS_CONFIG = {
 }
 
 # ==========================================
-# 📋 هيكل البيانات (الأعمدة)
+# 📋 عناوين الأعمدة
 # ==========================================
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم", "المجموعة",
@@ -179,7 +172,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==========================================
-# 🧮 حساب النقاط (معدل للقرآن والقيام)
+# 🧮 حساب النقاط (معدل)
 # ==========================================
 def safe_str(val):
     return str(val).strip() if val else ""
@@ -205,10 +198,10 @@ def calculate_score(row):
         if safe_str(row.get(chk)) == 'نعم': score += 3
     if safe_str(row.get('سورة_الملك')) == 'نعم': score += 5
     
-    # 3. القرآن وقيام الليل (Checkbox Logic)
-    # الآن أصبحوا خانات اختيار (نعم/لا)
-    if safe_str(row.get('القرآن')) == 'نعم': score += 8  # نقاط ثابتة للورد اليومي
-    if safe_str(row.get('قيام')) == 'نعم': score += 8    # نقاط ثابتة لقيام الليل
+    # 3. القرآن والقيام (نظام Checkbox)
+    # ⚠️ هنا التغيير: نقاط ثابتة (8) إذا كانت الإجابة "نعم"
+    if safe_str(row.get('القرآن')) == 'نعم': score += 8
+    if safe_str(row.get('قيام')) == 'نعم': score += 8
 
     # 4. أعمال البر
     good_deeds = ['الصيام', 'قراءة_كتاب', 'أسرة', 'مجلس التدارس', 'التعهد']
@@ -237,7 +230,7 @@ def get_level_and_rank(total_points):
     return level, title
 
 # ==========================================
-# 📊 تحميل ومعالجة البيانات
+# 📊 معالجة البيانات
 # ==========================================
 current_user = st.session_state["user_name"]
 current_group = st.session_state["user_group"]
@@ -294,7 +287,6 @@ if not full_df.empty:
 # 🖥️ الواجهة الرئيسية
 # ==========================================
 
-# الرأس
 col_h1, col_h2 = st.columns([6, 1])
 with col_h1:
     st.markdown(f"### 🚩 {current_group}")
@@ -304,25 +296,23 @@ with col_h2:
         st.session_state["authenticated"] = False
         st.rerun()
 
-# --- لوحة الإحصائيات (KPIs) ---
+# KPIs
 st.markdown("<br>", unsafe_allow_html=True)
 kpi1, kpi2, kpi3 = st.columns(3)
 with kpi1: st.markdown(f"""<div class="metric-card"><h3>🥇 الترتيب</h3><h1>#{my_rank}</h1></div>""", unsafe_allow_html=True)
 with kpi2: st.markdown(f"""<div class="metric-card"><h3>🛡️ المستوى</h3><h1>{my_level}</h1></div>""", unsafe_allow_html=True)
 with kpi3: st.markdown(f"""<div class="metric-card"><h3>✨ النقاط</h3><h1>{my_total_xp}</h1></div>""", unsafe_allow_html=True)
 
-# شريط التقدم
 points_next = (my_level * 500) - my_total_xp
 progress_val = max(0.0, min(1.0, 1 - (points_next / 500)))
 st.markdown(f"<p style='text-align:center; margin-top:10px; color:#666;'>🚀 باقي <b>{points_next}</b> نقطة للمستوى القادم</p>", unsafe_allow_html=True)
 st.progress(progress_val)
 
-# --- التبويبات ---
 st.markdown("<br>", unsafe_allow_html=True)
 tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 لوحة الصدارة", "📈 تطور مستواي"])
 
 # ==========================================
-# TAB 1 : التسجيل (واجهة منظمة + Checkboxes)
+# TAB 1 : التسجيل
 # ==========================================
 with tab1:
     st.markdown("### 🤲 تسجيل إنجاز اليوم")
@@ -333,7 +323,7 @@ with tab1:
 
     with st.form("entry_form"):
         
-        # قسم الصلوات (مفتوح دائماً)
+        # الصلوات
         with st.expander("🕌 الصلوات المفروضة", expanded=True):
             c1, c2, c3 = st.columns(3)
             with c1:
@@ -364,7 +354,7 @@ with tab1:
                 st.markdown("<br>", unsafe_allow_html=True)
                 inputs['duha'] = st.checkbox("صلاة الضحى", key="duha")
 
-        # قسم الروحانيات (تعديل القرآن والقيام إلى Checkbox)
+        # الروحانيات (CHECKBOXES Now)
         with st.expander("📖 الروحانيات (القرآن والقيام)", expanded=False):
             col_z1, col_z2 = st.columns(2)
             with col_z1:
@@ -376,7 +366,7 @@ with tab1:
                 inputs['mulk'] = st.checkbox("سورة الملك")
             with col_z2:
                 st.markdown("**🌙 القرآن والقيام**")
-                # ⚠️ تم التغيير إلى Checkbox كما طلبت
+                # ⚠️ التعديل هنا: Checkbox بدلاً من Slider
                 inputs['qiyam'] = st.checkbox("قيام الليل (صلاة الليل)")
                 inputs['quran'] = st.checkbox("الورد القرآني اليومي")
                 
@@ -388,7 +378,7 @@ with tab1:
                 else:
                     kahf = False; salat_nabi = False
 
-        # قسم أعمال البر
+        # أعمال البر
         with st.expander("🌱 أعمال البر", expanded=False):
             b1, b2, b3, b4, b5 = st.columns(5)
             inputs['fasting'] = b1.checkbox("صيام تطوع")
@@ -403,7 +393,6 @@ with tab1:
         if submit:
             day_date = datetime.now().strftime("%Y-%m-%d")
             
-            # التحقق من التكرار
             is_duplicate = False
             if not full_df.empty:
                 user_df = full_df[full_df['الاسم'] == current_user]
@@ -413,6 +402,7 @@ with tab1:
             if is_duplicate:
                 st.error(f"⛔ لقد قمت بتسجيل بيانات يوم {day_date} مسبقاً.")
             else:
+                # ⚠️ حفظ القيم كـ "نعم" أو "لا"
                 row = [
                     day_date, current_user, current_group,
                     inputs['fs'], "نعم" if inputs['fsn'] else "لا", "نعم" if inputs['duha'] else "لا",
@@ -460,7 +450,6 @@ with tab2:
 
     t2_1, t2_2 = st.tabs(["🥇 الترتيب العام", "📅 الترتيب الأسبوعي"])
     
-    # العام
     with t2_1:
         if not display_df.empty and 'Score' in display_df.columns:
             gen_board = display_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
@@ -472,7 +461,6 @@ with tab2:
         else:
             st.info("لا توجد بيانات متاحة.")
 
-    # الأسبوعي
     with t2_2:
         if not display_df.empty and 'Score' in display_df.columns:
             curr_wk = datetime.now().isocalendar()[1]
