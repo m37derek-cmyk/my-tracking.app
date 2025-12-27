@@ -331,7 +331,6 @@ if not full_df.empty:
             group_df = full_df[full_df['المجموعة'] == current_group].copy()
 
         if not group_df.empty:
-            # Groupement par NOM ET PIN pour l'unicité
             temp_leaderboard = group_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
             temp_leaderboard.insert(0, 'الترتيب', temp_leaderboard.index + 1)
             
@@ -348,7 +347,8 @@ if not full_df.empty:
 col_h1, col_h2 = st.columns([6, 1])
 with col_h1:
     st.markdown(f"### 🚩 {current_group}")
-    st.markdown(f"**أهلاً بك يا {current_user}**")
+    # ⚠️ Affichage du NOM et du CODE PIN pour confirmation personnelle
+    st.markdown(f"**أهلاً بك يا {current_user} (الرمز: {current_pin})**")
 with col_h2:
     if st.button("خروج", key="logout"):
         st.session_state["authenticated"] = False
@@ -392,7 +392,7 @@ if current_group == "الإدارة":
             gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
             gen_board['اللقب'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[1])
             gen_board.insert(0, 'الترتيب', gen_board.index + 1)
-            # ADMIN VOIT TOUT
+            # Admin voit Nom + Code
             st.dataframe(gen_board[['الترتيب', 'الاسم', 'الرمز_الشخصي', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True)
         else: st.info("لا توجد بيانات.")
 
@@ -588,7 +588,7 @@ else:
                             st.rerun()
                     except Exception as e: st.error(f"حدث خطأ تقني: {e}")
 
-    # --- TAB 2 : CLASSEMENT (USER ANONYME) ---
+    # --- TAB 2 : LEADERBOARD (ANONYME) ---
     with tab2:
         st.markdown("### 🏆 لوحة الصدارة")
         if not full_df.empty:
@@ -600,7 +600,7 @@ else:
                 gen_board['اللقب'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[1])
                 gen_board.insert(0, 'الترتيب', gen_board.index + 1)
                 
-                # ⚠️ USER VIEW: On montre le CODE PIN (renommé "الرمز"), pas le NOM
+                # ⚠️ USER VIEW: ON MONTRE LE CODE PIN (RENOMMÉ "الرمز"), PAS LE NOM
                 st.dataframe(
                     gen_board[['الترتيب', 'الرمز_الشخصي', 'المستوى', 'Score', 'اللقب']].rename(columns={'الرمز_الشخصي': 'الرمز'}), 
                     use_container_width=True, hide_index=True
