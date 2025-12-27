@@ -172,7 +172,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==========================================
-# 🧮 حساب النقاط (معدل)
+# 🧮 حساب النقاط (تم التحديث للقرآن والقيام)
 # ==========================================
 def safe_str(val):
     return str(val).strip() if val else ""
@@ -198,12 +198,28 @@ def calculate_score(row):
         if safe_str(row.get(chk)) == 'نعم': score += 3
     if safe_str(row.get('سورة_الملك')) == 'نعم': score += 5
     
-    # 3. القرآن والقيام (نظام Checkbox)
-    # ⚠️ هنا التغيير: نقاط ثابتة (8) إذا كانت الإجابة "نعم"
-    if safe_str(row.get('القرآن')) == 'نعم': score += 8
-    if safe_str(row.get('قيام')) == 'نعم': score += 8
+    # 3. القرآن (نقاط متدرجة)
+    quran_val = safe_str(row.get('القرآن'))
+    quran_points = {
+        "ثمن": 2, 
+        "ربع": 4, 
+        "نصف": 6, 
+        "حزب": 8, 
+        "حزبين": 10
+    }
+    score += quran_points.get(quran_val, 0)
+    
+    # 4. قيام الليل (نقاط متدرجة)
+    qiyam_val = safe_str(row.get('قيام'))
+    qiyam_points = {
+        "ركعتان": 3, 
+        "4 ركعات": 5, 
+        "6 ركعات": 7, 
+        "8 ركعات": 10
+    }
+    score += qiyam_points.get(qiyam_val, 0)
 
-    # 4. أعمال البر
+    # 5. أعمال البر
     good_deeds = ['الصيام', 'قراءة_كتاب', 'أسرة', 'مجلس التدارس', 'التعهد']
     points_deed = {
         'الصيام': 10, 
@@ -215,7 +231,7 @@ def calculate_score(row):
     for deed in good_deeds:
         if safe_str(row.get(deed)) == 'نعم': score += points_deed[deed]
 
-    # 5. الجمعة
+    # 6. الجمعة
     if safe_str(row.get('جمعة_كهف')) == 'نعم': score += 15
     if safe_str(row.get('جمعة_صلاة_نبي')) == 'نعم': score += 15
     
@@ -354,7 +370,7 @@ with tab1:
                 st.markdown("<br>", unsafe_allow_html=True)
                 inputs['duha'] = st.checkbox("صلاة الضحى", key="duha")
 
-        # الروحانيات (CHECKBOXES Now)
+        # الروحانيات (تعديل: استعادة Slider للكميات)
         with st.expander("📖 الروحانيات (القرآن والقيام)", expanded=False):
             col_z1, col_z2 = st.columns(2)
             with col_z1:
@@ -366,9 +382,9 @@ with tab1:
                 inputs['mulk'] = st.checkbox("سورة الملك")
             with col_z2:
                 st.markdown("**🌙 القرآن والقيام**")
-                # ⚠️ التعديل هنا: Checkbox بدلاً من Slider
-                inputs['qiyam'] = st.checkbox("قيام الليل (صلاة الليل)")
-                inputs['quran'] = st.checkbox("الورد القرآني اليومي")
+                # ⚠️ خيارات متدرجة كما طلبت
+                inputs['qiyam'] = st.select_slider("قيام الليل", options=["0", "ركعتان", "4 ركعات", "6 ركعات", "8 ركعات"])
+                inputs['quran'] = st.select_slider("الورد القرآني", options=["0", "ثمن", "ربع", "نصف", "حزب", "حزبين"])
                 
                 if is_friday:
                     st.markdown("---")
@@ -393,6 +409,7 @@ with tab1:
         if submit:
             day_date = datetime.now().strftime("%Y-%m-%d")
             
+            # التحقق من التكرار
             is_duplicate = False
             if not full_df.empty:
                 user_df = full_df[full_df['الاسم'] == current_user]
@@ -402,7 +419,6 @@ with tab1:
             if is_duplicate:
                 st.error(f"⛔ لقد قمت بتسجيل بيانات يوم {day_date} مسبقاً.")
             else:
-                # ⚠️ حفظ القيم كـ "نعم" أو "لا"
                 row = [
                     day_date, current_user, current_group,
                     inputs['fs'], "نعم" if inputs['fsn'] else "لا", "نعم" if inputs['duha'] else "لا",
@@ -413,8 +429,8 @@ with tab1:
                     "نعم" if inputs['az_m'] else "لا", "نعم" if inputs['az_e'] else "لا", 
                     "نعم" if inputs['az_p'] else "لا", "نعم" if inputs['az_s'] else "لا", 
                     "نعم" if inputs['mulk'] else "لا",
-                    "نعم" if inputs['qiyam'] else "لا", # قيام checkbox
-                    "نعم" if inputs['quran'] else "لا", # قرآن checkbox
+                    inputs['qiyam'], # قيمة متدرجة
+                    inputs['quran'], # قيمة متدرجة
                     "نعم" if inputs['fasting'] else "لا", 
                     "نعم" if inputs['book_read'] else "لا",
                     "نعم" if inputs['family'] else "لا", 
