@@ -172,7 +172,7 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# 5. AUTHENTIFICATION
+# 5. AUTHENTIFICATION (SIMPLIFIÉE)
 # ==========================================
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -194,7 +194,7 @@ def check_login():
         st.session_state["user_pin"] = input_pin
         st.session_state["user_group"] = found_group
     else:
-        st.error("⛔ تأكد من الاسم، الرمز الشخصي، وكلمة المرور")
+        st.error("⛔ البيانات غير صحيحة")
 
 if not st.session_state["authenticated"]:
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -208,8 +208,9 @@ if not st.session_state["authenticated"]:
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
-        st.text_input("👤 الاسم الكريم (الذي سيظهر للإدارة):", key="login_user")
-        st.text_input("🔢 الرمز الشخصي (PIN - لمتابعة سجلك):", type="password", key="login_pin", help="احفظ هذا الرقم جيداً لمشاهدة سجلك الخاص")
+        # ⚠️ TEXTES SIMPLIFIÉS ICI
+        st.text_input("👤 الاسم الكريم:", key="login_user")
+        st.text_input("🔢 الرمز الشخصي:", type="password", key="login_pin")
         st.text_input("🔑 كلمة مرور المجموعة:", type="password", key="login_pass")
         
         st.button("🚀 دخول للسباق", on_click=check_login, use_container_width=True)
@@ -290,7 +291,7 @@ group_df = pd.DataFrame()
 if not full_df.empty:
     missing_cols = [c for c in EXPECTED_HEADERS if c not in full_df.columns]
     if missing_cols:
-        st.warning("⚠️ **تنبيه:** تحديث هيكل الملف ضروري لإضافة الرمز الشخصي.")
+        st.warning("⚠️ **تنبيه:** تحديث هيكل الملف ضروري.")
         if st.button("🔧 إصلاح الملف تلقائياً"):
             try:
                 with st.spinner("جاري التحديث..."):
@@ -314,7 +315,6 @@ if not full_df.empty:
             temp_leaderboard = group_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
             temp_leaderboard.insert(0, 'الترتيب', temp_leaderboard.index + 1)
             
-            # Ici on utilise le NOM pour le classement (Admin View)
             my_stats = temp_leaderboard[temp_leaderboard['الاسم'] == current_user]
             if not my_stats.empty:
                 my_total_xp = my_stats.iloc[0]['Score']
@@ -434,7 +434,6 @@ with tab1:
             day_date = datetime.now().strftime("%Y-%m-%d")
             is_duplicate = False
             if not full_df.empty:
-                # Vérification basée sur le NOM (Administration) et PIN
                 user_check = full_df[
                     (full_df['الاسم'] == current_user) & 
                     (full_df['الرمز_الشخصي'].astype(str) == str(current_pin))
@@ -471,7 +470,7 @@ with tab1:
                 except Exception as e:
                     st.error(f"حدث خطأ تقني: {e}")
 
-# --- TAB 2 : Leaderboard (Admin voit les Noms) ---
+# --- TAB 2 : Leaderboard ---
 with tab2:
     st.markdown("### 📊 لوحة الصدارة")
     target_group = current_group
@@ -522,6 +521,9 @@ with tab2:
                     if safe_str(day_row['العصر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_items.append("صلاة العصر")
                     if safe_str(day_row['المغرب_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_items.append("صلاة المغرب")
                     if safe_str(day_row['العشاء_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_items.append("صلاة العشاء")
+                    if safe_str(day_row['الفجر_سنة']) == 'لا': missed_items.append("سنة الفجر")
+                    if safe_str(day_row['أذكار_الصباح']) == 'لا': missed_items.append("أذكار الصباح")
+                    if safe_str(day_row['أذكار_المساء']) == 'لا': missed_items.append("أذكار المساء")
                     if safe_str(day_row['القرآن']) in ['0', 'لا', '']: missed_items.append("الورد القرآني")
                     if target_group not in SIMPLIFIED_GROUPS and safe_str(day_row['قيام']) in ['0', 'لا', '']: missed_items.append("قيام الليل")
                     
@@ -530,7 +532,7 @@ with tab2:
                         for item in missed_items: st.markdown(f"""<div class="missed-item">❌ {item}</div>""", unsafe_allow_html=True)
                     else: st.success("🎉 يوم كامل!")
     else:
-        # Vue Utilisateur Normal
+        # Vue Utilisateur
         if not full_df.empty:
             display_df = full_df[full_df['المجموعة'] == target_group].copy()
         else: display_df = pd.DataFrame()
@@ -552,15 +554,12 @@ with tab2:
                     wk_board.insert(0, 'الترتيب', wk_board.index + 1)
                     st.dataframe(wk_board[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
 
-# --- TAB 3 : Historique (Filtré par PIN, Nom masqué) ---
+# --- TAB 3 : Historique (Anonyme par PIN) ---
 with tab3:
     st.markdown("### 📈 تطور مستواي")
-    
-    # ⚠️ Filtre uniquement par PIN
     if not full_df.empty:
-        my_hist = full_df[
-            full_df['الرمز_الشخصي'].astype(str) == str(current_pin)
-        ].copy()
+        # ⚠️ Filtre uniquement par PIN (L'utilisateur voit SES données, pas son nom)
+        my_hist = full_df[full_df['الرمز_الشخصي'].astype(str) == str(current_pin)].copy()
         
         if not my_hist.empty:
             my_hist = my_hist.dropna(subset=['DateObj']).sort_values(by='DateObj')
@@ -570,7 +569,7 @@ with tab3:
             st.line_chart(my_hist['Score'])
             
             st.markdown("#### سجل البيانات")
-            # ⚠️ Masquer le Nom et le Code PIN dans l'affichage
+            # On retire le nom et le PIN de l'affichage
             st.dataframe(
                 my_hist.drop(columns=['الاسم', 'الرمز_الشخصي', 'Score', 'المجموعة'], errors='ignore').reset_index(drop=True), 
                 use_container_width=True
