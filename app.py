@@ -72,20 +72,30 @@ st.markdown("""
         width: 100%;
     }
     
-    .streamlit-expanderHeader {
-        background-color: white;
+    .missed-container {
+        background-color: #fff5f5;
+        border: 1px solid #ffcdd2;
         border-radius: 10px;
-        font-weight: bold;
-        color: #333;
+        padding: 15px;
+        margin-top: 10px;
     }
-    
-    .missed-item {
+    .missed-category {
+        font-weight: bold;
+        color: #b71c1c;
+        margin-top: 10px;
+        margin-bottom: 5px;
+        border-bottom: 1px solid #ef9a9a;
+        padding-bottom: 3px;
+    }
+    .missed-tag {
+        display: inline-block;
         background-color: #ffebee;
         color: #c62828;
-        padding: 10px;
-        margin-bottom: 5px;
-        border-radius: 5px;
-        border-right: 4px solid #c62828;
+        padding: 5px 10px;
+        margin: 3px;
+        border-radius: 15px;
+        font-size: 0.9rem;
+        border: 1px solid #ffcdd2;
     }
 
     h1, h2, h3, h4 { color: #2c3e50 !important; }
@@ -513,30 +523,81 @@ with tab2:
                 selected_date_audit = st.selectbox("اختر التاريخ:", dates_list)
                 
                 if selected_date_audit:
-                    # Récupérer la ligne complète (DataFrame)
+                    # Récupérer la ligne complète
                     day_record = user_audit_data[user_audit_data['التاريخ'] == selected_date_audit]
-                    day_row = day_record.iloc[0] # Pour les calculs individuels
+                    day_row = day_record.iloc[0] 
                     
-                    st.markdown("##### 📄 السجل الكامل (كما تم حفظه):")
-                    # Afficher le tableau complet pour cette ligne
+                    # 1. TABLEAU COMPLET (Excel-like)
+                    st.markdown("##### 📄 السجل الكامل:")
                     st.dataframe(day_record, use_container_width=True)
                     
-                    st.markdown("##### ⚠️ ملخص التقصيرات:")
-                    missed_items = []
-                    if safe_str(day_row['الفجر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_items.append("صلاة الفجر")
-                    if safe_str(day_row['الظهر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_items.append("صلاة الظهر")
-                    if safe_str(day_row['العصر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_items.append("صلاة العصر")
-                    if safe_str(day_row['المغرب_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_items.append("صلاة المغرب")
-                    if safe_str(day_row['العشاء_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_items.append("صلاة العشاء")
-                    if safe_str(day_row['الفجر_سنة']) == 'لا': missed_items.append("سنة الفجر")
-                    if safe_str(day_row['أذكار_الصباح']) == 'لا': missed_items.append("أذكار الصباح")
-                    if safe_str(day_row['أذكار_المساء']) == 'لا': missed_items.append("أذكار المساء")
-                    if safe_str(day_row['القرآن']) in ['0', 'لا', '']: missed_items.append("الورد القرآني")
-                    if target_group not in SIMPLIFIED_GROUPS and safe_str(day_row['قيام']) in ['0', 'لا', '']: missed_items.append("قيام الليل")
+                    # 2. ANALYSE (STRICTE)
+                    st.markdown("##### ⚠️ ملخص التقصيرات (ما لم يتم):")
                     
-                    if missed_items:
-                        for item in missed_items: st.markdown(f"""<div class="missed-item">❌ {item}</div>""", unsafe_allow_html=True)
-                    else: st.success("🎉 يوم كامل!")
+                    missed_prayers = []
+                    missed_sunan = []
+                    missed_adhkar = []
+                    missed_deeds = []
+                    
+                    # Logique stricte: si ce n'est pas 'نعم' ou 'جماعة/في الوقت', c'est manqué
+                    # Prières
+                    if safe_str(day_row['الفجر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("الفجر")
+                    if safe_str(day_row['الظهر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("الظهر")
+                    if safe_str(day_row['العصر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("العصر")
+                    if safe_str(day_row['المغرب_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("المغرب")
+                    if safe_str(day_row['العشاء_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("العشاء")
+                    
+                    # Sunan
+                    if safe_str(day_row['الفجر_سنة']) != 'نعم': missed_sunan.append("سنة الفجر")
+                    if safe_str(day_row['الظهر_سنة']) != 'نعم': missed_sunan.append("سنة الظهر")
+                    if safe_str(day_row['المغرب_سنة']) != 'نعم': missed_sunan.append("سنة المغرب")
+                    if safe_str(day_row['العشاء_سنة']) != 'نعم': missed_sunan.append("سنة العشاء")
+                    if safe_str(day_row['الضحى']) != 'نعم': missed_sunan.append("الضحى")
+                    
+                    # Adhkar & Quran
+                    if safe_str(day_row['أذكار_الصباح']) != 'نعم': missed_adhkar.append("الصباح")
+                    if safe_str(day_row['أذكار_المساء']) != 'نعم': missed_adhkar.append("المساء")
+                    if safe_str(day_row['أذكار_الصلاة']) != 'نعم': missed_adhkar.append("دبر الصلاة")
+                    if safe_str(day_row['أذكار_النوم']) != 'نعم': missed_adhkar.append("النوم")
+                    if safe_str(day_row['سورة_الملك']) != 'نعم': missed_adhkar.append("سورة الملك")
+                    if safe_str(day_row['القرآن']) in ['0', 'لا', '']: missed_adhkar.append("الورد القرآني")
+                    
+                    # Deeds (Groupes Standards)
+                    if target_group not in SIMPLIFIED_GROUPS:
+                        if safe_str(day_row['قيام']) in ['0', 'لا', '']: missed_deeds.append("قيام الليل")
+                        if safe_str(day_row['قراءة_كتاب']) != 'نعم': missed_deeds.append("قراءة كتاب")
+                        if safe_str(day_row['أسرة']) != 'نعم': missed_deeds.append("بر الأسرة")
+                        if safe_str(day_row['التعهد']) != 'نعم': missed_deeds.append("التعهد")
+                    
+                    # Affichage par catégorie
+                    has_missed = False
+                    st.markdown('<div class="missed-container">', unsafe_allow_html=True)
+                    
+                    if missed_prayers:
+                        has_missed = True
+                        st.markdown('<div class="missed-category">🚫 الصلوات الفائتة:</div>', unsafe_allow_html=True)
+                        for p in missed_prayers: st.markdown(f'<span class="missed-tag">{p}</span>', unsafe_allow_html=True)
+                        
+                    if missed_sunan:
+                        has_missed = True
+                        st.markdown('<div class="missed-category">⚠️ السنن المتروكة:</div>', unsafe_allow_html=True)
+                        for s in missed_sunan: st.markdown(f'<span class="missed-tag">{s}</span>', unsafe_allow_html=True)
+
+                    if missed_adhkar:
+                        has_missed = True
+                        st.markdown('<div class="missed-category">📿 أذكار/قرآن لم تقرأ:</div>', unsafe_allow_html=True)
+                        for a in missed_adhkar: st.markdown(f'<span class="missed-tag">{a}</span>', unsafe_allow_html=True)
+
+                    if missed_deeds:
+                        has_missed = True
+                        st.markdown('<div class="missed-category">🌱 أعمال بر أخرى:</div>', unsafe_allow_html=True)
+                        for d in missed_deeds: st.markdown(f'<span class="missed-tag">{d}</span>', unsafe_allow_html=True)
+
+                    if not has_missed:
+                        st.success("🎉 ما شاء الله! يوم كامل ومثالي (100%).")
+                    
+                    st.markdown('</div>', unsafe_allow_html=True)
+
     else:
         # Vue Utilisateur
         if not full_df.empty:
