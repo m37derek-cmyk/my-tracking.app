@@ -172,7 +172,7 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# 5. AUTHENTIFICATION (SIMPLIFIÉE)
+# 5. AUTHENTIFICATION
 # ==========================================
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -208,7 +208,6 @@ if not st.session_state["authenticated"]:
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # ⚠️ TEXTES SIMPLIFIÉS ICI
         st.text_input("👤 الاسم الكريم:", key="login_user")
         st.text_input("🔢 الرمز الشخصي:", type="password", key="login_pin")
         st.text_input("🔑 كلمة مرور المجموعة:", type="password", key="login_pass")
@@ -505,16 +504,24 @@ with tab2:
             else: st.info("لا توجد بيانات.")
 
         with t2_3:
-            st.markdown("#### 🕵️‍♂️ فحص تقصيرات الأعضاء")
+            st.markdown("#### 🕵️‍♂️ فحص سجلات الأعضاء")
             if not display_df.empty:
                 users_list = display_df['الاسم'].unique()
                 selected_user_audit = st.selectbox("اختر العضو:", users_list)
                 user_audit_data = display_df[display_df['الاسم'] == selected_user_audit]
                 dates_list = user_audit_data['التاريخ'].unique()
                 selected_date_audit = st.selectbox("اختر التاريخ:", dates_list)
+                
                 if selected_date_audit:
-                    day_row = user_audit_data[user_audit_data['التاريخ'] == selected_date_audit].iloc[0]
-                    st.write(f"📊 تقرير يوم: **{selected_date_audit}** للعضو **{selected_user_audit}**")
+                    # Récupérer la ligne complète (DataFrame)
+                    day_record = user_audit_data[user_audit_data['التاريخ'] == selected_date_audit]
+                    day_row = day_record.iloc[0] # Pour les calculs individuels
+                    
+                    st.markdown("##### 📄 السجل الكامل (كما تم حفظه):")
+                    # Afficher le tableau complet pour cette ligne
+                    st.dataframe(day_record, use_container_width=True)
+                    
+                    st.markdown("##### ⚠️ ملخص التقصيرات:")
                     missed_items = []
                     if safe_str(day_row['الفجر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_items.append("صلاة الفجر")
                     if safe_str(day_row['الظهر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_items.append("صلاة الظهر")
@@ -528,7 +535,6 @@ with tab2:
                     if target_group not in SIMPLIFIED_GROUPS and safe_str(day_row['قيام']) in ['0', 'لا', '']: missed_items.append("قيام الليل")
                     
                     if missed_items:
-                        st.error("⚠️ **التقصيرات:**")
                         for item in missed_items: st.markdown(f"""<div class="missed-item">❌ {item}</div>""", unsafe_allow_html=True)
                     else: st.success("🎉 يوم كامل!")
     else:
@@ -558,7 +564,6 @@ with tab2:
 with tab3:
     st.markdown("### 📈 تطور مستواي")
     if not full_df.empty:
-        # ⚠️ Filtre uniquement par PIN (L'utilisateur voit SES données, pas son nom)
         my_hist = full_df[full_df['الرمز_الشخصي'].astype(str) == str(current_pin)].copy()
         
         if not my_hist.empty:
@@ -569,7 +574,6 @@ with tab3:
             st.line_chart(my_hist['Score'])
             
             st.markdown("#### سجل البيانات")
-            # On retire le nom et le PIN de l'affichage
             st.dataframe(
                 my_hist.drop(columns=['الاسم', 'الرمز_الشخصي', 'Score', 'المجموعة'], errors='ignore').reset_index(drop=True), 
                 use_container_width=True
