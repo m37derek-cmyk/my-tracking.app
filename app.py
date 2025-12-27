@@ -7,16 +7,18 @@ import os
 import random
 import time
 
-# --- إعدادات الصفحة ---
+# ==========================================
+# 1. CONFIGURATION DE LA PAGE (MOBILE & SEO)
+# ==========================================
 st.set_page_config(
-    page_title="سباق الصالحين",
+    page_title="سباق الصالحين", # Le nom qui apparaitra sous l'icône sur Android/iOS
+    page_icon="🕌",            # L'icône par défaut (ou mettez "logo.png" si vous avez le fichier)
     layout="wide",
-    page_icon="🕌",
     initial_sidebar_state="collapsed"
 )
 
 # ==========================================
-# 🎨 التصميم (CSS - عربي حديث)
+# 2. DESIGN & CSS (LOOK "APPLICATION")
 # ==========================================
 st.markdown("""
 <style>
@@ -29,7 +31,12 @@ st.markdown("""
     
     .stApp { background-color: #f8f9fa; }
 
-    /* تنسيق الاقتباس */
+    /* --- Cacher l'interface Streamlit (Menu, Footer, Header) --- */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* --- Styles Personnalisés --- */
     .quote-box {
         background-color: #e0f2f1;
         border-right: 5px solid #009688;
@@ -40,13 +47,13 @@ st.markdown("""
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
     .quote-text {
-        font-size: 1.3rem;
+        font-size: 1.2rem;
         color: #00695c;
         font-weight: bold;
         margin-bottom: 8px;
     }
     .quote-source {
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         color: #555;
         font-style: italic;
     }
@@ -54,15 +61,14 @@ st.markdown("""
     .metric-card {
         background-color: white;
         border-radius: 15px;
-        padding: 20px;
+        padding: 15px;
         border-right: 5px solid #009688;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         text-align: center;
         transition: transform 0.3s ease;
     }
-    .metric-card:hover { transform: translateY(-5px); }
-    .metric-card h3 { margin: 0; font-size: 1rem; color: #666; }
-    .metric-card h1 { margin: 0; font-size: 2.5rem; color: #009688; font-weight: bold; }
+    .metric-card h3 { margin: 0; font-size: 0.9rem; color: #666; }
+    .metric-card h1 { margin: 0; font-size: 2rem; color: #009688; font-weight: bold; }
 
     .stButton>button {
         background: linear-gradient(135deg, #009688 0%, #00796b 100%);
@@ -76,10 +82,6 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(0, 150, 136, 0.3);
         width: 100%;
     }
-    .stButton>button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 6px 20px rgba(0, 150, 136, 0.5);
-    }
     
     .streamlit-expanderHeader {
         background-color: white;
@@ -89,13 +91,11 @@ st.markdown("""
     }
 
     h1, h2, h3, h4 { color: #2c3e50 !important; }
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 💎 اقتباسات (مع المصدر)
+# 3. CITATIONS & CONFIGURATION
 # ==========================================
 MOTIVATIONAL_QUOTES = [
     {"text": "﴿ وَفِي ذَلِكَ فَلْيَتَنَافَسِ الْمُتَنَافِسُونَ ﴾", "source": "سورة المطففين: 26"},
@@ -131,9 +131,6 @@ MOTIVATIONAL_QUOTES = [
 ]
 daily_quote_data = random.choice(MOTIVATIONAL_QUOTES)
 
-# ==========================================
-# 🔑 إعدادات المجموعات
-# ==========================================
 GROUPS_CONFIG = {
     "مجموعة الفردوس": "Firdaws@786!Top",
     "مجموعة الريان": "Rayyan#2025$Win",
@@ -141,9 +138,6 @@ GROUPS_CONFIG = {
     "الإدارة": "Admin@MasterKey99!"
 }
 
-# ==========================================
-# 📋 عناوين الأعمدة
-# ==========================================
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم", "المجموعة",
     "الفجر_حالة", "الفجر_سنة", "الضحى", 
@@ -158,12 +152,11 @@ EXPECTED_HEADERS = [
 ]
 
 # ==========================================
-# 🚀 الاتصال بقاعدة البيانات
+# 4. CONNEXION BACKEND
 # ==========================================
 def get_client():
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        
         if "google_credentials" in st.secrets:
             creds_dict = dict(st.secrets["google_credentials"])
             if "private_key" in creds_dict:
@@ -190,7 +183,7 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# 🔒 تسجيل الدخول
+# 5. AUTHENTIFICATION
 # ==========================================
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -222,7 +215,6 @@ if not st.session_state["authenticated"]:
             <p style="color: #666; font-size: 1.1rem;">منصة التنافس الأخوي في الطاعات</p>
         </div>
         """, unsafe_allow_html=True)
-        
         st.markdown("<br>", unsafe_allow_html=True)
         st.text_input("👤 الاسم الكريم:", key="login_user")
         st.text_input("🔑 رمز المجموعة:", type="password", key="login_pass")
@@ -230,7 +222,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==========================================
-# 🧮 حساب النقاط
+# 6. CALCUL DES POINTS
 # ==========================================
 def safe_str(val):
     return str(val).strip() if val else ""
@@ -238,7 +230,7 @@ def safe_str(val):
 def calculate_score(row):
     score = 0
     
-    # 1. الصلوات
+    # 1. Prières
     prayers_map = {'الفجر': 'الفجر_حالة', 'الظهر': 'الظهر_حالة', 'العصر': 'العصر_حالة', 'المغرب': 'المغرب_حالة', 'العشاء': 'العشاء_حالة'}
     for p_name, col_name in prayers_map.items():
         status = safe_str(row.get(col_name))
@@ -250,46 +242,29 @@ def calculate_score(row):
             
     if safe_str(row.get('الضحى')) == 'نعم': score += 5
     
-    # 2. الأذكار
+    # 2. Adhkar
     chk_list = ['أذكار_الصباح', 'أذكار_المساء', 'أذكار_الصلاة', 'أذكار_النوم']
     for chk in chk_list:
         if safe_str(row.get(chk)) == 'نعم': score += 3
     if safe_str(row.get('سورة_الملك')) == 'نعم': score += 5
     
-    # 3. القرآن
+    # 3. Coran (Selectbox)
     quran_val = safe_str(row.get('القرآن'))
-    quran_points = {
-        "ثمن": 2, 
-        "ربع": 4, 
-        "نصف": 6, 
-        "حزب": 8, 
-        "حزبين": 10
-    }
+    quran_points = {"ثمن": 2, "ربع": 4, "نصف": 6, "حزب": 8, "حزبين": 10}
     score += quran_points.get(quran_val, 0)
     
-    # 4. قيام الليل
+    # 4. Qiyam (Selectbox)
     qiyam_val = safe_str(row.get('قيام'))
-    qiyam_points = {
-        "ركعتان": 3, 
-        "4 ركعات": 5, 
-        "6 ركعات": 7, 
-        "8 ركعات": 10
-    }
+    qiyam_points = {"ركعتان": 3, "4 ركعات": 5, "6 ركعات": 7, "8 ركعات": 10}
     score += qiyam_points.get(qiyam_val, 0)
 
-    # 5. أعمال البر
+    # 5. Bonnes Actions
     good_deeds = ['الصيام', 'قراءة_كتاب', 'أسرة', 'مجلس التدارس', 'التعهد']
-    points_deed = {
-        'الصيام': 10, 
-        'قراءة_كتاب': 4, 
-        'أسرة': 4, 
-        'مجلس التدارس': 4, 
-        'التعهد': 4
-    }
+    points_deed = {'الصيام': 10, 'قراءة_كتاب': 4, 'أسرة': 4, 'مجلس التدارس': 4, 'التعهد': 4}
     for deed in good_deeds:
         if safe_str(row.get(deed)) == 'نعم': score += points_deed[deed]
 
-    # 6. الجمعة
+    # 6. Vendredi
     if safe_str(row.get('جمعة_كهف')) == 'نعم': score += 15
     if safe_str(row.get('جمعة_صلاة_نبي')) == 'نعم': score += 15
     
@@ -304,7 +279,7 @@ def get_level_and_rank(total_points):
     return level, title
 
 # ==========================================
-# 📊 معالجة البيانات
+# 7. CHARGEMENT DONNÉES
 # ==========================================
 current_user = st.session_state["user_name"]
 current_group = st.session_state["user_group"]
@@ -320,19 +295,17 @@ my_level = 1
 my_rank = "-"
 group_df = pd.DataFrame() 
 
-# --- التحقق والإصلاح التلقائي ---
+# --- Auto-fix Columns ---
 if not full_df.empty:
     missing_cols = [c for c in EXPECTED_HEADERS if c not in full_df.columns]
     
     if missing_cols:
-        st.warning("⚠️ **تنبيه:** هيكل الملف غير متطابق مع التحديث الأخير.")
-        st.caption(f"الأعمدة الناقصة: {missing_cols}")
-        
+        st.warning("⚠️ **تنبيه:** تحديث هيكل الملف ضروري.")
         if st.button("🔧 إصلاح الملف تلقائياً"):
             try:
-                with st.spinner("جاري تحديث الأعمدة..."):
+                with st.spinner("جاري التحديث..."):
                     sheet_data.update('A1', [EXPECTED_HEADERS])
-                    st.success("✅ تم الإصلاح بنجاح! جاري إعادة التحميل...")
+                    st.success("✅ تم الإصلاح! أعد التحميل.")
                     time.sleep(2)
                     st.rerun()
             except Exception as e:
@@ -358,7 +331,7 @@ if not full_df.empty:
                 my_rank = my_stats.iloc[0]['الترتيب']
 
 # ==========================================
-# 🖥️ الواجهة الرئيسية
+# 8. INTERFACE UTILISATEUR
 # ==========================================
 
 col_h1, col_h2 = st.columns([6, 1])
@@ -370,7 +343,7 @@ with col_h2:
         st.session_state["authenticated"] = False
         st.rerun()
 
-# الاقتباس اليومي
+# Quote
 st.markdown(f"""
 <div class="quote-box">
     <div class="quote-text">{daily_quote_data['text']}</div>
@@ -378,7 +351,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# KPIs
+# Cards
 kpi1, kpi2, kpi3 = st.columns(3)
 with kpi1: st.markdown(f"""<div class="metric-card"><h3>🥇 الترتيب</h3><h1>#{my_rank}</h1></div>""", unsafe_allow_html=True)
 with kpi2: st.markdown(f"""<div class="metric-card"><h3>🛡️ المستوى</h3><h1>{my_level}</h1></div>""", unsafe_allow_html=True)
@@ -392,9 +365,7 @@ st.progress(progress_val)
 st.markdown("<br>", unsafe_allow_html=True)
 tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 لوحة الصدارة", "📈 تطور مستواي"])
 
-# ==========================================
-# TAB 1 : التسجيل
-# ==========================================
+# --- TAB 1 : Enregistrement ---
 with tab1:
     st.markdown("### 🤲 تسجيل إنجاز اليوم")
     
@@ -403,16 +374,16 @@ with tab1:
         st.success("🕌 **يوم الجمعة!** لا تنسَ سورة الكهف والصلاة على النبي.")
 
     with st.form("entry_form"):
-        # القيم الافتراضية
+        # Valeurs par défaut (pour les champs cachés)
         inputs = {}
+        inputs['qiyam'] = "0"
         inputs['fasting'] = False
         inputs['book_read'] = False
         inputs['family'] = False
         inputs['majlis_tadarus'] = False
         inputs['taahod'] = False
-        inputs['qiyam'] = "0" # القيمة الافتراضية للقيام إذا كان مخفياً
 
-        # الصلوات (للجميع)
+        # 1. Prières (Visible pour TOUS)
         with st.expander("🕌 الصلوات المفروضة", expanded=True):
             c1, c2, c3 = st.columns(3)
             with c1:
@@ -442,7 +413,7 @@ with tab1:
                 st.markdown("<br>", unsafe_allow_html=True)
                 inputs['duha'] = st.checkbox("صلاة الضحى", key="duha")
 
-        # الروحانيات (للجميع)
+        # 2. Spiritualité
         with st.expander("📖 الروحانيات (القرآن والأذكار)", expanded=False):
             col_z1, col_z2 = st.columns(2)
             with col_z1:
@@ -456,13 +427,11 @@ with tab1:
                 st.markdown("**🌙 القرآن**")
                 inputs['quran'] = st.selectbox("الورد القرآني", options=["0", "ثمن", "ربع", "نصف", "حزب", "حزبين"])
                 
-                # ⚠️ إخفاء "القيام" لمجموعة الفجر
+                # ⚠️ Qiyam masqué pour Fajr
                 if current_group != "مجموعة الفجر":
                     st.markdown("**🌙 قيام الليل**")
                     inputs['qiyam'] = st.selectbox("قيام الليل", options=["0", "ركعتان", "4 ركعات", "6 ركعات", "8 ركعات"])
-                else:
-                    inputs['qiyam'] = "0" # قيمة صفرية خفية لمجموعة الفجر
-
+                
                 if is_friday:
                     st.markdown("---")
                     cf1, cf2 = st.columns(2)
@@ -471,7 +440,7 @@ with tab1:
                 else:
                     kahf = False; salat_nabi = False
 
-        # أعمال البر (⚠️ يظهر فقط إذا لم يكن من مجموعة الفجر)
+        # 3. Bonnes Actions (⚠️ Masqué pour Fajr)
         if current_group != "مجموعة الفجر":
             with st.expander("🌱 أعمال البر", expanded=False):
                 b1, b2, b3, b4, b5 = st.columns(5)
@@ -487,7 +456,6 @@ with tab1:
         if submit:
             day_date = datetime.now().strftime("%Y-%m-%d")
             
-            # التحقق من التكرار
             is_duplicate = False
             if not full_df.empty:
                 user_df = full_df[full_df['الاسم'] == current_user]
@@ -527,9 +495,7 @@ with tab1:
                 except Exception as e:
                     st.error(f"حدث خطأ تقني: {e}")
 
-# ==========================================
-# TAB 2 : الصدارة
-# ==========================================
+# --- TAB 2 : Leaderboard ---
 with tab2:
     st.markdown("### 📊 لوحة الصدارة")
     
@@ -550,7 +516,6 @@ with tab2:
             gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
             gen_board['اللقب'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[1])
             gen_board.insert(0, 'الترتيب', gen_board.index + 1)
-            
             st.dataframe(gen_board[['الترتيب', 'الاسم', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True)
         else:
             st.info("لا توجد بيانات متاحة.")
@@ -559,40 +524,30 @@ with tab2:
         if not display_df.empty and 'Score' in display_df.columns:
             curr_wk = datetime.now().isocalendar()[1]
             curr_yr = datetime.now().year
-            
-            wk_df = display_df[
-                (display_df['DateObj'].dt.isocalendar().week == curr_wk) & 
-                (display_df['DateObj'].dt.year == curr_yr)
-            ]
+            wk_df = display_df[(display_df['DateObj'].dt.isocalendar().week == curr_wk) & (display_df['DateObj'].dt.year == curr_yr)]
             
             if not wk_df.empty:
                 wk_board = wk_df.groupby('الاسم')['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
                 wk_board.insert(0, 'الترتيب', wk_board.index + 1)
-                
                 top_name = wk_board.iloc[0]['الاسم']
                 top_score = wk_board.iloc[0]['Score']
                 st.success(f"🏆 بطل الأسبوع: **{top_name}** ({top_score} نقطة)")
-                
                 st.dataframe(wk_board[['الترتيب', 'الاسم', 'Score']], use_container_width=True, hide_index=True)
             else:
                 st.info("لم يبدأ السباق الأسبوعي بعد.")
         else:
             st.info("لا توجد بيانات.")
 
-# ==========================================
-# TAB 3 : التاريخ
-# ==========================================
+# --- TAB 3 : Historique ---
 with tab3:
     st.markdown("### 📈 تطور مستواي")
     if not full_df.empty and current_user in full_df['الاسم'].values and 'Score' in full_df.columns:
         my_hist = full_df[full_df['الاسم'] == current_user].copy()
-        
         my_hist = my_hist.dropna(subset=['DateObj']).sort_values(by='DateObj')
         my_hist.set_index('DateObj', inplace=True)
         
         st.caption("رسم بياني يوضح نقاطك اليومية")
         st.line_chart(my_hist['Score'])
-        
         st.markdown("#### سجل البيانات")
         st.dataframe(my_hist.drop(columns=['Score'], errors='ignore').reset_index(drop=True), use_container_width=True)
     else:
