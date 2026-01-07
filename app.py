@@ -72,39 +72,6 @@ st.markdown("""
         width: 100%;
     }
     
-    .streamlit-expanderHeader {
-        background-color: white;
-        border-radius: 10px;
-        font-weight: bold;
-        color: #333;
-    }
-    
-    .missed-container {
-        background-color: #fff5f5;
-        border: 1px solid #ffcdd2;
-        border-radius: 10px;
-        padding: 15px;
-        margin-top: 10px;
-    }
-    .missed-category {
-        font-weight: bold;
-        color: #b71c1c;
-        margin-top: 10px;
-        margin-bottom: 5px;
-        border-bottom: 1px solid #ef9a9a;
-        padding-bottom: 3px;
-    }
-    .missed-tag {
-        display: inline-block;
-        background-color: #ffebee;
-        color: #c62828;
-        padding: 5px 10px;
-        margin: 3px;
-        border-radius: 15px;
-        font-size: 0.9rem;
-        border: 1px solid #ffcdd2;
-    }
-    
     .friday-box {
         background: linear-gradient(to left, #e0f7fa, #ffffff);
         border: 2px solid #009688;
@@ -248,6 +215,7 @@ def safe_str(val):
 
 def calculate_score(row):
     score = 0
+    # Prières
     prayers_map = {'الفجر': 'الفجر_حالة', 'الظهر': 'الظهر_حالة', 'العصر': 'العصر_حالة', 'المغرب': 'المغرب_حالة', 'العشاء': 'العشاء_حالة'}
     for p_name, col_name in prayers_map.items():
         status = safe_str(row.get(col_name))
@@ -257,11 +225,13 @@ def calculate_score(row):
             if safe_str(row.get(f"{p_name}_سنة")) == 'نعم': score += 3
     if safe_str(row.get('الضحى')) == 'نعم': score += 5
     
+    # Adhkar
     chk_list = ['أذكار_الصباح', 'أذكار_المساء', 'أذكار_الصلاة', 'أذكار_النوم']
     for chk in chk_list:
         if safe_str(row.get(chk)) == 'نعم': score += 3
     if safe_str(row.get('سورة_الملك')) == 'نعم': score += 5
     
+    # Quran & Qiyam
     quran_val = safe_str(row.get('القرآن'))
     quran_points = {"ثمن": 2, "ربع": 4, "نصف": 6, "حزب": 8, "حزبين": 10}
     score += quran_points.get(quran_val, 0)
@@ -270,11 +240,13 @@ def calculate_score(row):
     qiyam_points = {"ركعتان": 3, "4 ركعات": 5, "6 ركعات": 7, "8 ركعات": 10}
     score += qiyam_points.get(qiyam_val, 0)
 
+    # Bonnes actions
     good_deeds = ['الصيام', 'قراءة_كتاب', 'أسرة', 'مجلس التدارس', 'التعهد']
     points_deed = {'الصيام': 10, 'قراءة_كتاب': 4, 'أسرة': 4, 'مجلس التدارس': 4, 'التعهد': 4}
     for deed in good_deeds:
         if safe_str(row.get(deed)) == 'نعم': score += points_deed[deed]
 
+    # Vendredi
     if safe_str(row.get('جمعة_كهف')) == 'نعم': score += 15
     if safe_str(row.get('جمعة_صلاة_نبي')) == 'نعم': score += 15
     if safe_str(row.get('جمعة_صلاة_جمعة')) == 'نعم': score += 20
@@ -308,37 +280,34 @@ my_rank = "-"
 group_df = pd.DataFrame() 
 
 if not full_df.empty:
-    missing_cols = [c for c in EXPECTED_HEADERS if c not in full_df.columns]
-    if missing_cols:
-        st.warning("⚠️ **تنبيه:** تحديث هيكل الملف ضروري.")
-        if st.button("🔧 إصلاح الملف تلقائياً"):
-            try:
-                with st.spinner("جاري التحديث..."):
-                    sheet_data.update('A1', [EXPECTED_HEADERS])
-                    st.success("✅ تم الإصلاح! أعد التحميل.")
-                    time.sleep(2)
-                    st.rerun()
-            except Exception as e:
-                st.error(f"حدث خطأ: {e}")
-        st.stop()
-    else:
-        full_df['Score'] = full_df.apply(calculate_score, axis=1)
-        full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
-        
-        if current_group == "الإدارة":
-            group_df = full_df.copy()
-        else:
-            group_df = full_df[full_df['المجموعة'] == current_group].copy()
+    # ⚠️ Correction automatique de la structure si nécessaire
+    current_cols = full_df.columns.tolist()
+    if not set(EXPECTED_HEADERS).issubset(current_cols):
+        try:
+             sheet_data.update('A1', [EXPECTED_HEADERS])
+        except: pass
 
-        if not group_df.empty:
-            temp_leaderboard = group_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
-            temp_leaderboard.insert(0, 'الترتيب', temp_leaderboard.index + 1)
-            
-            my_stats = temp_leaderboard[(temp_leaderboard['الاسم'] == current_user) & (temp_leaderboard['الرمز_الشخصي'].astype(str) == str(current_pin))]
-            if not my_stats.empty:
-                my_total_xp = my_stats.iloc[0]['Score']
-                my_level = 1 + (int(my_total_xp) // 500)
-                my_rank = my_stats.iloc[0]['الترتيب']
+    # Calculs
+    for col in EXPECTED_HEADERS:
+        if col not in full_df.columns: full_df[col] = ""
+
+    full_df['Score'] = full_df.apply(calculate_score, axis=1)
+    full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
+    
+    if current_group == "الإدارة":
+        group_df = full_df.copy()
+    else:
+        group_df = full_df[full_df['المجموعة'] == current_group].copy()
+
+    if not group_df.empty:
+        temp_leaderboard = group_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
+        temp_leaderboard.insert(0, 'الترتيب', temp_leaderboard.index + 1)
+        
+        my_stats = temp_leaderboard[(temp_leaderboard['الاسم'] == current_user) & (temp_leaderboard['الرمز_الشخصي'].astype(str) == str(current_pin))]
+        if not my_stats.empty:
+            my_total_xp = my_stats.iloc[0]['Score']
+            my_level = 1 + (int(my_total_xp) // 500)
+            my_rank = my_stats.iloc[0]['الترتيب']
 
 # ==========================================
 # 8. INTERFACE UTILISATEUR
@@ -347,7 +316,6 @@ if not full_df.empty:
 col_h1, col_h2 = st.columns([6, 1])
 with col_h1:
     st.markdown(f"### 🚩 {current_group}")
-    # ⚠️ Affichage du NOM et du CODE PIN pour confirmation personnelle
     st.markdown(f"**أهلاً بك يا {current_user} (الرمز: {current_pin})**")
 with col_h2:
     if st.button("خروج", key="logout"):
@@ -392,7 +360,6 @@ if current_group == "الإدارة":
             gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
             gen_board['اللقب'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[1])
             gen_board.insert(0, 'الترتيب', gen_board.index + 1)
-            # Admin voit Nom + Code
             st.dataframe(gen_board[['الترتيب', 'الاسم', 'الرمز_الشخصي', 'المستوى', 'Score', 'اللقب']], use_container_width=True, hide_index=True)
         else: st.info("لا توجد بيانات.")
 
@@ -426,73 +393,14 @@ if current_group == "الإدارة":
                     st.info("لا توجد بيانات لهذا الأسبوع للرسم البياني.")
 
                 st.markdown("---")
-                st.markdown("##### 📄 السجل التفصيلي لليوم:")
+                st.markdown("##### 📄 السجل التفصيلي:")
                 dates_list = user_all_data['التاريخ'].unique()
                 selected_date_audit = st.selectbox("اختر التاريخ:", dates_list)
                 
                 if selected_date_audit:
                     day_record = user_all_data[user_all_data['التاريخ'] == selected_date_audit]
                     st.dataframe(day_record, use_container_width=True)
-                    
-                    day_row = day_record.iloc[0] 
-                    st.markdown("##### ⚠️ ملخص التقصيرات (ما لم يتم):")
-                    
-                    missed_prayers = []
-                    missed_sunan = []
-                    missed_adhkar = []
-                    missed_deeds = []
-                    
-                    if safe_str(day_row['الفجر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("الفجر")
-                    if safe_str(day_row['الظهر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("الظهر")
-                    if safe_str(day_row['العصر_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("العصر")
-                    if safe_str(day_row['المغرب_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("المغرب")
-                    if safe_str(day_row['العشاء_حالة']) not in ['جماعة (مسجد)', 'في الوقت (بيت)']: missed_prayers.append("العشاء")
-                    
-                    if safe_str(day_row['الفجر_سنة']) != 'نعم': missed_sunan.append("سنة الفجر")
-                    if safe_str(day_row['الظهر_سنة']) != 'نعم': missed_sunan.append("سنة الظهر")
-                    if safe_str(day_row['المغرب_سنة']) != 'نعم': missed_sunan.append("سنة المغرب")
-                    if safe_str(day_row['العشاء_سنة']) != 'نعم': missed_sunan.append("سنة العشاء")
-                    if safe_str(day_row['الضحى']) != 'نعم': missed_sunan.append("الضحى")
-                    
-                    if safe_str(day_row['أذكار_الصباح']) != 'نعم': missed_adhkar.append("الصباح")
-                    if safe_str(day_row['أذكار_المساء']) != 'نعم': missed_adhkar.append("المساء")
-                    if safe_str(day_row['أذكار_الصلاة']) != 'نعم': missed_adhkar.append("دبر الصلاة")
-                    if safe_str(day_row['أذكار_النوم']) != 'نعم': missed_adhkar.append("النوم")
-                    if safe_str(day_row['سورة_الملك']) != 'نعم': missed_adhkar.append("سورة الملك")
-                    if safe_str(day_row['القرآن']) in ['0', 'لا', '']: missed_adhkar.append("الورد القرآني")
-                    
-                    date_obj = pd.to_datetime(selected_date_audit)
-                    if date_obj.weekday() == 4:
-                        if safe_str(day_row['جمعة_صلاة_جمعة']) != 'نعم': missed_deeds.append("صلاة الجمعة")
-                        if safe_str(day_row['جمعة_كهف']) != 'نعم': missed_deeds.append("سورة الكهف")
-                        if safe_str(day_row['جمعة_صلاة_نبي']) != 'نعم': missed_deeds.append("الصلاة على النبي")
 
-                    if target_group not in SIMPLIFIED_GROUPS:
-                        if safe_str(day_row['قيام']) in ['0', 'لا', '']: missed_deeds.append("قيام الليل")
-                        if safe_str(day_row['قراءة_كتاب']) != 'نعم': missed_deeds.append("قراءة كتاب")
-                        if safe_str(day_row['أسرة']) != 'نعم': missed_deeds.append("بر الأسرة")
-                        if safe_str(day_row['التعهد']) != 'نعم': missed_deeds.append("التعهد")
-                    
-                    has_missed = False
-                    st.markdown('<div class="missed-container">', unsafe_allow_html=True)
-                    if missed_prayers:
-                        has_missed = True
-                        st.markdown('<div class="missed-category">🚫 الصلوات الفائتة:</div>', unsafe_allow_html=True)
-                        for p in missed_prayers: st.markdown(f'<span class="missed-tag">{p}</span>', unsafe_allow_html=True)
-                    if missed_sunan:
-                        has_missed = True
-                        st.markdown('<div class="missed-category">⚠️ السنن المتروكة:</div>', unsafe_allow_html=True)
-                        for s in missed_sunan: st.markdown(f'<span class="missed-tag">{s}</span>', unsafe_allow_html=True)
-                    if missed_adhkar:
-                        has_missed = True
-                        st.markdown('<div class="missed-category">📿 أذكار/قرآن لم تقرأ:</div>', unsafe_allow_html=True)
-                        for a in missed_adhkar: st.markdown(f'<span class="missed-tag">{a}</span>', unsafe_allow_html=True)
-                    if missed_deeds:
-                        has_missed = True
-                        st.markdown('<div class="missed-category">🌱 أعمال بر/جمعة:</div>', unsafe_allow_html=True)
-                        for d in missed_deeds: st.markdown(f'<span class="missed-tag">{d}</span>', unsafe_allow_html=True)
-                    if not has_missed: st.success("🎉 ما شاء الله! يوم كامل ومثالي (100%).")
-                    st.markdown('</div>', unsafe_allow_html=True)
 else:
     # USER VIEW
     tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 لوحة الصدارة", "📈 تطور مستواي"])
@@ -518,19 +426,30 @@ else:
 
             with st.expander("🕌 الصلوات المفروضة", expanded=True):
                 c1, c2, c3 = st.columns(3)
-                inputs['fs'] = c1.selectbox("الفجر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="fs", label_visibility="collapsed")
-                inputs['fsn'] = c1.checkbox("السنة", key="fsn")
-                inputs['ds'] = c2.selectbox("الظهر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="ds", label_visibility="collapsed")
-                inputs['dsn'] = c2.checkbox("السنة", key="dsn")
-                inputs['as'] = c3.selectbox("العصر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="as", label_visibility="collapsed")
+                with c1:
+                    st.markdown("**🌌 الفجر**")
+                    inputs['fs'] = st.selectbox("الفجر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="fs", label_visibility="collapsed")
+                    inputs['fsn'] = st.checkbox("السنة", key="fsn")
+                with c2:
+                    st.markdown("**☀️ الظهر**")
+                    inputs['ds'] = st.selectbox("الظهر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="ds", label_visibility="collapsed")
+                    inputs['dsn'] = st.checkbox("السنة", key="dsn")
+                with c3:
+                    st.markdown("**🌤️ العصر**")
+                    inputs['as'] = st.selectbox("العصر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="as", label_visibility="collapsed")
                 st.markdown("---")
                 c4, c5, c6 = st.columns(3)
-                inputs['ms'] = c4.selectbox("المغرب", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="ms", label_visibility="collapsed")
-                inputs['msn'] = c4.checkbox("السنة", key="msn")
-                inputs['is_val'] = c5.selectbox("العشاء", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="is_val", label_visibility="collapsed")
-                inputs['isn'] = c5.checkbox("السنة", key="isn")
-                c6.markdown("<br>", unsafe_allow_html=True)
-                inputs['duha'] = c6.checkbox("صلاة الضحى", key="duha")
+                with c4:
+                    st.markdown("**🌅 المغرب**")
+                    inputs['ms'] = st.selectbox("المغرب", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="ms", label_visibility="collapsed")
+                    inputs['msn'] = st.checkbox("السنة", key="msn")
+                with c5:
+                    st.markdown("**🌃 العشاء**")
+                    inputs['is_val'] = st.selectbox("العشاء", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="is_val", label_visibility="collapsed")
+                    inputs['isn'] = st.checkbox("السنة", key="isn")
+                with c6:
+                    st.markdown("**☀️ الضحى**")
+                    inputs['duha'] = st.checkbox("صلاة الضحى", key="duha")
 
             with st.expander("📖 الروحانيات", expanded=False):
                 col_z1, col_z2 = st.columns(2)
@@ -594,13 +513,12 @@ else:
         if not full_df.empty:
             display_df = full_df[full_df['المجموعة'] == current_group].copy()
             if not display_df.empty:
-                # Group by Name/PIN but only show what we want
                 gen_board = display_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
                 gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
                 gen_board['اللقب'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[1])
                 gen_board.insert(0, 'الترتيب', gen_board.index + 1)
                 
-                # ⚠️ USER VIEW: ON MONTRE LE CODE PIN (RENOMMÉ "الرمز"), PAS LE NOM
+                # USER VIEW: ON MONTRE LE CODE PIN (RENOMMÉ "الرمز"), PAS LE NOM
                 st.dataframe(
                     gen_board[['الترتيب', 'الرمز_الشخصي', 'المستوى', 'Score', 'اللقب']].rename(columns={'الرمز_الشخصي': 'الرمز'}), 
                     use_container_width=True, hide_index=True
