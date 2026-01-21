@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. DESIGN & CSS (Style Arabe)
+# 2. DESIGN & CSS
 # ==========================================
 st.markdown("""
 <style>
@@ -80,7 +80,6 @@ GROUPS_CONFIG = {
     "الإدارة": "Admin@MasterKey99!"
 }
 
-# Les colonnes exactes pour le Google Sheet
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم", "الرمز_الشخصي", "المجموعة",
     "الفجر", "الظهر", "العصر", "المغرب", "العشاء",
@@ -95,14 +94,13 @@ def get_client():
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         if "google_credentials" in st.secrets:
             creds_dict = dict(st.secrets["google_credentials"])
-            # Correction du bug fréquent des retours à la ligne
             if "private_key" in creds_dict:
                 creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
             creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         elif os.path.exists("credentials.json"):
             creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
         else:
-            st.error("❌ مفاتيح الاتصال مفقودة (secrets.toml).")
+            st.error("❌ مفاتيح الاتصال مفقودة.")
             st.stop()
         return gspread.authorize(creds)
     except Exception as e:
@@ -110,7 +108,6 @@ def get_client():
         st.stop()
 
 client = get_client()
-# REMPLACEZ PAR VOTRE URL SI ELLE A CHANGÉ
 spreadsheet_url = "https://docs.google.com/spreadsheets/d/1XqSb4DmiUEd-mt9WMlVPTow7VdeYUI2O870fsgrZx-0/edit?gid=0#gid=0"
 
 try:
@@ -149,53 +146,48 @@ if not st.session_state["authenticated"]:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<br><br><h1 style='text-align:center; color:#009688;'>🕌 مجموعة الهدى</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center;'>منصة المتابعة اليومية</p>", unsafe_allow_html=True)
-        
         st.text_input("👤 الاسم الكريم:", key="login_user")
         st.text_input("🔢 الرمز الشخصي:", type="password", key="login_pin")
         st.text_input("🔑 كلمة مرور المجموعة:", type="password", key="login_pass")
-        
         st.button("دخول", on_click=check_login)
     st.stop()
 
 # ==========================================
-# 6. LOGIQUE DE CALCUL DES POINTS
+# 6. LOGIQUE DE CALCUL
 # ==========================================
 def safe_str(val):
     return str(val).strip() if val else ""
 
 def calculate_score(row):
     score = 0
-    
-    # 1. Fajr (Priorité absolue)
     fajr = safe_str(row.get('الفجر'))
     if fajr == 'جماعة (مسجد)': score += 20
     elif fajr == 'في الوقت (بيت)': score += 15
     
-    # 2. Autres Prières
     prayers = ['الظهر', 'العصر', 'المغرب', 'العشاء']
     for p in prayers:
         stat = safe_str(row.get(p))
         if stat == 'جماعة (مسجد)': score += 10
         elif stat == 'في الوقت (بيت)': score += 8
 
-    # 3. Coran
     if safe_str(row.get('الورد_القرآني')) != 'لم أقرأ': score += 15
-    
-    # 4. Qiyam (3 rak'ats)
     if safe_str(row.get('قيام_الليل')) == 'نعم': score += 20
-    
-    # 5. Jeûne
     if safe_str(row.get('الصيام')) == 'نعم': score += 30
     
     return score
 
 # ==========================================
-# 7. CHARGEMENT ET TRAITEMENT DES DONNÉES
+# 7. TRAITEMENT DES DONNÉES (CORRIGÉ)
 # ==========================================
 current_user = st.session_state["user_name"]
 current_pin = st.session_state["user_pin"]
 current_group = st.session_state["user_group"]
+
+# --- CORRECTION DE L'ERREUR : INITIALISATION PAR DÉFAUT ---
+# On initialise ces variables ICI pour qu'elles existent même si le fichier est vide
+my_total_xp = 0
+my_rank = "-"
+group_df = pd.DataFrame()
 
 try:
     data = sheet_data.get_all_records()
@@ -203,37 +195,30 @@ try:
 except:
     full_df = pd.DataFrame()
 
-# Mise à jour automatique des colonnes si nécessaire
 if not full_df.empty:
+    # Mise à jour structure
     current_cols = full_df.columns.tolist()
     if not set(EXPECTED_HEADERS).issubset(current_cols):
-        try:
-             sheet_data.update('A1', [EXPECTED_HEADERS])
+        try: sheet_data.update('A1', [EXPECTED_HEADERS])
         except: pass
 
-    # On s'assure que toutes les colonnes existent
     for col in EXPECTED_HEADERS:
         if col not in full_df.columns: full_df[col] = ""
 
-    # Calcul des scores
     full_df['Score'] = full_df.apply(calculate_score, axis=1)
     full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
     
-    # Filtrage par groupe
     if current_group == "الإدارة":
         group_df = full_df.copy()
     else:
         group_df = full_df[full_df['المجموعة'] == current_group].copy()
 
-    my_total_xp = 0
-    my_rank = "-"
-    
     if not group_df.empty:
-        # Création du classement
+        # Calcul du classement
         leaderboard = group_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False)
         leaderboard['Rank'] = range(1, len(leaderboard) + 1)
         
-        # Mes stats
+        # Récupération de mes stats
         my_stats = leaderboard[(leaderboard['الاسم'] == current_user) & (leaderboard['الرمز_الشخصي'].astype(str) == str(current_pin))]
         if not my_stats.empty:
             my_total_xp = my_stats.iloc[0]['Score']
@@ -251,30 +236,25 @@ with col_h2:
         st.session_state["authenticated"] = False
         st.rerun()
 
-# Cartes de scores
+# Les variables my_rank et my_total_xp existent maintenant quoi qu'il arrive
 k1, k2 = st.columns(2)
 with k1: st.markdown(f"""<div class="metric-card"><h3>الترتيب</h3><h1>#{my_rank}</h1></div>""", unsafe_allow_html=True)
 with k2: st.markdown(f"""<div class="metric-card"><h3>مجموع النقاط</h3><h1>{my_total_xp}</h1></div>""", unsafe_allow_html=True)
 
 st.markdown("---")
 
-# Navigation
 tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 المتصدرون", "📈 سجلي"])
 
-# --- TAB 1: FORMULAIRE SIMPLIFIÉ ---
+# --- TAB 1: FORMULAIRE ---
 with tab1:
-    st.markdown("### 🤲 جدول متابعة مجموعة الهدى")
+    st.markdown("### 🤲 متابعة مجموعة الهدى")
     st.info(random.choice(MOTIVATIONAL_QUOTES))
     
     with st.form("huda_form"):
-        
-        # 1. FAJR
         st.markdown("<div class='task-header'>🕌 صلاة الفجر</div>", unsafe_allow_html=True)
         fajr = st.selectbox("حالة الفجر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], label_visibility="collapsed")
         
-        # 2. AUTRES PRIERES
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<div class='task-header'>⏰ الصلوات المفروضة</div>", unsafe_allow_html=True)
+        st.markdown("<br><div class='task-header'>⏰ الصلوات المفروضة</div>", unsafe_allow_html=True)
         c1, c2, c3, c4 = st.columns(4)
         with c1:
             st.caption("الظهر")
@@ -291,50 +271,42 @@ with tab1:
         
         st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
         
-        # 3. SPIRITUALITÉ
         col_q1, col_q2, col_q3 = st.columns(3)
-        
         with col_q1:
             st.markdown("<div class='task-header'>📖 الورد اليومي</div>", unsafe_allow_html=True)
             quran = st.selectbox("الكمية", ["لم أقرأ", "وجه", "ربع حزب", "حزب", "جزء"], label_visibility="collapsed")
-            
         with col_q2:
             st.markdown("<div class='task-header'>🌙 قيام الليل</div>", unsafe_allow_html=True)
-            st.caption("(3 ركعات: الشفع والوتر)")
+            st.caption("(3 ركعات)")
             qiyam = st.checkbox("أديت 3 ركعات")
-            
         with col_q3:
-            st.markdown("<div class='task-header'>🍽️ صيام التطوع</div>", unsafe_allow_html=True)
+            st.markdown("<div class='task-header'>🍽️ الصيام</div>", unsafe_allow_html=True)
             st.caption("(يوم في الأسبوع)")
             fasting = st.checkbox("صمت هذا اليوم")
 
         st.markdown("<br>", unsafe_allow_html=True)
-        submitted = st.form_submit_button("✅ حفظ تسجيل اليوم")
+        submitted = st.form_submit_button("✅ حفظ")
         
         if submitted:
             day_date = datetime.now().strftime("%Y-%m-%d")
-            
-            # Vérification doublon
             is_dup = False
             if not group_df.empty:
                 check = group_df[(group_df['الاسم']==current_user) & (group_df['الرمز_الشخصي'].astype(str)==str(current_pin))]
                 if day_date in check['التاريخ'].astype(str).values: is_dup = True
             
             if is_dup:
-                st.error(f"⛔ تم تسجيل يوم {day_date} سابقاً.")
+                st.error(f"⛔ تم التسجيل ليوم {day_date} سابقاً.")
             else:
                 row = [
                     day_date, current_user, current_pin, current_group,
                     fajr, dhuhr, asr, maghrib, isha,
-                    quran,
-                    "نعم" if qiyam else "لا",
-                    "نعم" if fasting else "لا"
+                    quran, "نعم" if qiyam else "لا", "نعم" if fasting else "لا"
                 ]
                 try:
                     with st.spinner("جاري الحفظ..."):
                         sheet_data.append_row(row)
                         st.balloons()
-                        st.success("تم الحفظ! تقبل الله طاعتكم.")
+                        st.success("تم الحفظ!")
                         time.sleep(1)
                         st.rerun()
                 except Exception as e:
@@ -344,35 +316,22 @@ with tab1:
 with tab2:
     if not group_df.empty:
         st.markdown("### 🏆 المتنافسون")
-        # On groupe par nom/pin pour avoir le total
         leaderboard = group_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False)
         leaderboard['الترتيب'] = range(1, len(leaderboard) + 1)
-        
-        # On affiche le classement (On cache le Nom pour plus de confidentialité, on montre le PIN/Code)
-        # Si vous préférez afficher les noms, remplacez 'الرمز_الشخصي' par 'الاسم'
-        st.dataframe(
-            leaderboard[['الترتيب', 'الرمز_الشخصي', 'Score']].rename(columns={'الرمز_الشخصي': 'الرمز'}), 
-            use_container_width=True, 
-            hide_index=True
-        )
+        st.dataframe(leaderboard[['الترتيب', 'الرمز_الشخصي', 'Score']].rename(columns={'الرمز_الشخصي': 'الرمز'}), use_container_width=True, hide_index=True)
     else:
-        st.info("لا توجد بيانات مسجلة بعد.")
+        st.info("لا توجد بيانات.")
 
 # --- TAB 3: HISTORIQUE ---
 with tab3:
     if not group_df.empty:
-        st.markdown("### 📈 سجلي الشخصي")
+        st.markdown("### 📈 سجلي")
         my_data = group_df[(group_df['الاسم'] == current_user) & (group_df['الرمز_الشخصي'].astype(str) == str(current_pin))].copy()
-        
         if not my_data.empty:
             my_data = my_data.sort_values('DateObj')
             st.line_chart(my_data.set_index('DateObj')['Score'])
-            
-            # Affichage du tableau propre
-            cols_to_show = ['التاريخ', 'الفجر', 'الورد_القرآني', 'قيام_الليل', 'الصيام', 'Score']
-            # On s'assure que les colonnes existent
-            existing_cols = [c for c in cols_to_show if c in my_data.columns]
-            st.dataframe(my_data[existing_cols], use_container_width=True)
+            cols_to_show = [c for c in ['التاريخ', 'الفجر', 'الورد_القرآني', 'Score'] if c in my_data.columns]
+            st.dataframe(my_data[cols_to_show], use_container_width=True)
         else:
             st.info("لم تقم بأي تسجيل بعد.")
     else:
