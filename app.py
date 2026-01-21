@@ -88,11 +88,11 @@ GROUPS_CONFIG = {
     "مجموعة الريان": "Rayyan#2025$Win",
     "مجموعة الفجر": "Fajr@Simple22", 
     "مجموعة النور": "Noor@Light55", 
-    "مجموعة الهدى": "Huda@Simple77",  # ✨ Nouveau groupe simplifié
+    "مجموعة الهدى": "Huda@Simple77",  
     "الإدارة": "Admin@MasterKey99!"
 }
 
-# Liste complète des colonnes (Superset pour gérer tous les groupes)
+# Liste complète des colonnes
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم", "الرمز_الشخصي", "المجموعة",
     "الفجر_حالة", "الفجر_سنة", "الضحى", 
@@ -191,7 +191,7 @@ def calculate_score(row):
     score += quran_points.get(quran_val, 0)
     
     qiyam_val = safe_str(row.get('قيام'))
-    qiyam_points = {"ركعتان": 5, "3 ركعات": 8, "4 ركعات": 10, "6 ركعات": 12, "8 ركعات": 15} # Ajusté pour inclure "3 ركعات"
+    qiyam_points = {"ركعتان": 5, "3 ركعات": 8, "4 ركعات": 10, "6 ركعات": 12, "8 ركعات": 15}
     score += qiyam_points.get(qiyam_val, 0)
 
     # 4. Bonnes actions
@@ -205,7 +205,7 @@ def calculate_score(row):
     if safe_str(row.get('جمعة_صلاة_نبي')) == 'نعم': score += 15
     if safe_str(row.get('جمعة_صلاة_جمعة')) == 'نعم': score += 20
     
-    return min(score, 200) # Augmenté le max possible
+    return min(score, 200)
 
 def get_level_and_rank(total_points):
     level = 1 + (int(total_points) // 500)
@@ -237,14 +237,15 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==========================================
-# 6. CHARGEMENT & CALCULS
+# 6. CHARGEMENT & CALCULS (CORRECTION ERREUR)
 # ==========================================
 current_user = st.session_state["user_name"]
 current_pin = st.session_state["user_pin"]
 current_group = st.session_state["user_group"]
 
-# Initialisation
+# ⚠️ INITIALISATION DES VARIABLES PAR DÉFAUT (Pour éviter NameError)
 my_total_xp = 0
+my_level = 1
 my_rank = "-"
 group_df = pd.DataFrame() 
 
@@ -255,7 +256,7 @@ except:
     full_df = pd.DataFrame()
 
 if not full_df.empty:
-    # ⚠️ Auto-repair columns
+    # Auto-repair columns
     current_cols = full_df.columns.tolist()
     if not set(EXPECTED_HEADERS).issubset(current_cols):
         try: sheet_data.update('A1', [EXPECTED_HEADERS])
@@ -282,8 +283,6 @@ if not full_df.empty:
             my_total_xp = my_stats.iloc[0]['Score']
             my_level, _ = get_level_and_rank(my_total_xp)
             my_rank = my_stats.iloc[0]['الترتيب']
-        else:
-            my_level = 1
 
 # ==========================================
 # 7. INTERFACE PRINCIPALE
@@ -340,12 +339,11 @@ else:
 
         with st.form("entry_form"):
             # Dictionnaire pour stocker toutes les valeurs (même vides)
-            # On initialise tout à "لا" ou "" par défaut
             data_row = {col: "لا" for col in EXPECTED_HEADERS}
             data_row["القرآن"] = "0"
             data_row["قيام"] = "0"
             
-            # --- FORMULAIRE SIMPLIFIÉ (POUR GROUPE AL HUDA) ---
+            # --- FORMULAIRE SIMPLIFIÉ (AL HUDA) ---
             if current_group == "مجموعة الهدى":
                 st.markdown("**🔍 النسخة المخففة (التركيز على الأساسيات)**")
                 
@@ -372,7 +370,6 @@ else:
                 
                 with cc2:
                     st.markdown("<div class='task-header'>🌙 قيام الليل</div>", unsafe_allow_html=True)
-                    # Mapping spécial pour "3 rakaat" vers la colonne "قيام"
                     is_qiyam = st.checkbox("أديت 3 ركعات (الشفع والوتر)")
                     if is_qiyam: data_row["قيام"] = "3 ركعات"
                 
@@ -381,9 +378,8 @@ else:
                     is_fasting = st.checkbox("صمت هذا اليوم")
                     if is_fasting: data_row["الصيام"] = "نعم"
 
-            # --- FORMULAIRE COMPLET (POUR LES AUTRES GROUPES) ---
+            # --- FORMULAIRE COMPLET ---
             else:
-                # Friday Section
                 if datetime.today().weekday() == 4:
                     st.markdown('<div class="friday-box">✨ سنن الجمعة</div>', unsafe_allow_html=True)
                     c_f1, c_f2, c_f3 = st.columns(3)
@@ -447,15 +443,12 @@ else:
                 if is_duplicate:
                     st.error(f"⛔ لقد قمت بتسجيل بيانات يوم {day_date} مسبقاً.")
                 else:
-                    # Construction de la liste finale dans le bon ordre
                     final_row = []
-                    # On remplit les champs fixes
                     data_row["التاريخ"] = day_date
                     data_row["الاسم"] = current_user
                     data_row["الرمز_الشخصي"] = current_pin
                     data_row["المجموعة"] = current_group
                     
-                    # On génère la liste ordonnée selon EXPECTED_HEADERS
                     for header in EXPECTED_HEADERS:
                         final_row.append(data_row.get(header, "لا"))
                         
@@ -495,7 +488,6 @@ else:
                 my_hist.set_index('DateObj', inplace=True)
                 st.line_chart(my_hist['Score'])
                 
-                # Colonnes à afficher selon le groupe
                 if current_group == "مجموعة الهدى":
                     cols_show = ['الفجر_حالة', 'القرآن', 'قيام', 'الصيام', 'Score']
                 else:
