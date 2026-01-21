@@ -37,6 +37,7 @@ st.markdown("""
         text-align: center;
         transition: transform 0.3s ease;
     }
+    .metric-card:hover { transform: translateY(-5px); }
     .metric-card h3 { margin: 0; font-size: 0.9rem; color: #666; }
     .metric-card h1 { margin: 0; font-size: 2rem; color: #009688; font-weight: bold; }
 
@@ -66,6 +67,16 @@ st.markdown("""
         border-radius: 10px;
         padding: 15px;
         margin-bottom: 20px;
+    }
+    
+    .success-box {
+        background-color: #e8f5e9;
+        border: 1px solid #c8e6c9;
+        color: #2e7d32;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        margin-top: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -169,39 +180,26 @@ def calculate_score(row):
     score = 0
     group = safe_str(row.get('المجموعة'))
     
-    # ========================================================
-    # 🚀 LOGIQUE SPÉCIALE BOOSTÉE POUR "مجموعة الهدى"
-    # ========================================================
+    # LOGIQUE SPÉCIALE AL HUDA
     if group == "مجموعة الهدى":
-        # 1. Fajr (Très haute importance)
         fajr = safe_str(row.get('الفجر_حالة'))
         if fajr == 'جماعة (مسجد)': score += 50
         elif fajr == 'في الوقت (بيت)': score += 40
         
-        # 2. Autres Prières (Boostées)
         prayers_map = {'الظهر_حالة', 'العصر_حالة', 'المغرب_حالة', 'العشاء_حالة'}
         for col in prayers_map:
             val = safe_str(row.get(col))
             if val == 'جماعة (مسجد)': score += 20
             elif val == 'في الوقت (بيت)': score += 15
             
-        # 3. Quran (Boosté)
         if safe_str(row.get('القرآن')) != '0': score += 30
-        
-        # 4. Qiyam (Boosté)
-        # Note: Dans le formulaire Huda, on met "3 ركعات" dans la colonne 'قيام'
         if "3" in safe_str(row.get('قيام')): score += 60 
-        
-        # 5. Fasting (Boosté car 1x/semaine)
         if safe_str(row.get('الصيام')) == 'نعم': score += 100
         
         return score
 
-    # ========================================================
-    # 🔹 LOGIQUE STANDARD POUR LES AUTRES GROUPES
-    # ========================================================
+    # LOGIQUE STANDARD
     else:
-        # Prières
         prayers_map = {'الفجر': 'الفجر_حالة', 'الظهر': 'الظهر_حالة', 'العصر': 'العصر_حالة', 'المغرب': 'المغرب_حالة', 'العشاء': 'العشاء_حالة'}
         for p_name, col_name in prayers_map.items():
             status = safe_str(row.get(col_name))
@@ -211,13 +209,11 @@ def calculate_score(row):
                 if safe_str(row.get(f"{p_name}_سنة")) == 'نعم': score += 3
         if safe_str(row.get('الضحى')) == 'نعم': score += 5
         
-        # Adhkar
         chk_list = ['أذكار_الصباح', 'أذكار_المساء', 'أذكار_الصلاة', 'أذكار_النوم']
         for chk in chk_list:
             if safe_str(row.get(chk)) == 'نعم': score += 3
         if safe_str(row.get('سورة_الملك')) == 'نعم': score += 5
         
-        # Quran & Qiyam
         quran_val = safe_str(row.get('القرآن'))
         quran_points = {"ثمن": 2, "ربع": 4, "نصف": 6, "حزب": 8, "حزبين": 10}
         score += quran_points.get(quran_val, 0)
@@ -226,13 +222,11 @@ def calculate_score(row):
         qiyam_points = {"ركعتان": 5, "3 ركعات": 8, "4 ركعات": 10, "6 ركعات": 12, "8 ركعات": 15}
         score += qiyam_points.get(qiyam_val, 0)
 
-        # Bonnes actions
         good_deeds = ['الصيام', 'قراءة_كتاب', 'أسرة', 'مجلس التدارس', 'التعهد']
         points_deed = {'الصيام': 15, 'قراءة_كتاب': 4, 'أسرة': 4, 'مجلس التدارس': 4, 'التعهد': 4}
         for deed in good_deeds:
             if safe_str(row.get(deed)) == 'نعم': score += points_deed[deed]
 
-        # Vendredi
         if safe_str(row.get('جمعة_كهف')) == 'نعم': score += 15
         if safe_str(row.get('جمعة_صلاة_نبي')) == 'نعم': score += 15
         if safe_str(row.get('جمعة_صلاة_جمعة')) == 'نعم': score += 20
@@ -241,7 +235,11 @@ def calculate_score(row):
 
 def get_level_and_rank(total_points):
     level = 1 + (int(total_points) // 500)
-    return level
+    if level < 5: title = "مبتدئ (🌱)"
+    elif level < 10: title = "مجتهد (💪)"
+    elif level < 20: title = "سابق (🚀)"
+    else: title = "رباني (👑)"
+    return level, title
 
 # ==========================================
 # 5. PAGE DE CONNEXION
@@ -283,13 +281,11 @@ except:
     full_df = pd.DataFrame()
 
 if not full_df.empty:
-    # Auto-repair columns
     current_cols = full_df.columns.tolist()
     if not set(EXPECTED_HEADERS).issubset(current_cols):
         try: sheet_data.update('A1', [EXPECTED_HEADERS])
         except: pass
 
-    # Fill missing columns
     for col in EXPECTED_HEADERS:
         if col not in full_df.columns: full_df[col] = ""
 
@@ -299,18 +295,16 @@ if not full_df.empty:
     if current_group == "الإدارة":
         group_df = full_df.copy()
     else:
-        # ⚠️ FILTRAGE STRICT PAR GROUPE (PAS DE MÉLANGE)
         group_df = full_df[full_df['المجموعة'] == current_group].copy()
 
     if not group_df.empty:
-        # Classement au sein du groupe uniquement
         temp_leaderboard = group_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
         temp_leaderboard.insert(0, 'الترتيب', temp_leaderboard.index + 1)
         
         my_stats = temp_leaderboard[(temp_leaderboard['الاسم'] == current_user) & (temp_leaderboard['الرمز_الشخصي'].astype(str) == str(current_pin))]
         if not my_stats.empty:
             my_total_xp = my_stats.iloc[0]['Score']
-            my_level = get_level_and_rank(my_total_xp)
+            my_level, _ = get_level_and_rank(my_total_xp)
             my_rank = my_stats.iloc[0]['الترتيب']
 
 # ==========================================
@@ -329,7 +323,7 @@ st.info(random.choice(MOTIVATIONAL_QUOTES))
 
 if current_group != "الإدارة":
     kpi1, kpi2, kpi3 = st.columns(3)
-    with kpi1: st.markdown(f"""<div class="metric-card"><h3>🥇 الترتيب (في المجموعة)</h3><h1>#{my_rank}</h1></div>""", unsafe_allow_html=True)
+    with kpi1: st.markdown(f"""<div class="metric-card"><h3>🥇 الترتيب</h3><h1>#{my_rank}</h1></div>""", unsafe_allow_html=True)
     with kpi2: st.markdown(f"""<div class="metric-card"><h3>🛡️ المستوى</h3><h1>{my_level}</h1></div>""", unsafe_allow_html=True)
     with kpi3: st.markdown(f"""<div class="metric-card"><h3>✨ النقاط</h3><h1>{my_total_xp}</h1></div>""", unsafe_allow_html=True)
 
@@ -341,10 +335,9 @@ if current_group != "الإدارة":
 st.markdown("---")
 
 # ==========================================
-# 8. TABS (ENREGISTREMENT & STATS)
+# 8. TABS
 # ==========================================
 if current_group == "الإدارة":
-    # --- VUE ADMIN ---
     st.markdown("## 👮‍♂️ لوحة تحكم الإدارة")
     target_group = st.selectbox("🔍 عرض مجموعة:", list(GROUPS_CONFIG.keys())[:-1])
     
@@ -358,116 +351,123 @@ if current_group == "الإدارة":
     else: st.info("Database vide.")
 
 else:
-    # --- VUE UTILISATEUR ---
     tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 لوحة الصدارة", "📈 تطور مستواي"])
 
     with tab1:
         st.markdown("### 🤲 تسجيل إنجاز اليوم")
-        if datetime.today().weekday() == 4: st.success("🕌 **يوم الجمعة!** لا تنسَ سنن الجمعة.")
+        day_date = datetime.now().strftime("%Y-%m-%d")
+        
+        # ⚠️ VERIFICATION AVANT D'AFFICHER LE FORMULAIRE
+        is_already_submitted = False
+        if not full_df.empty:
+            # Vérifier si (User + Pin + Date) existe déjà
+            check_exists = full_df[
+                (full_df['الاسم'] == current_user) & 
+                (full_df['الرمز_الشخصي'].astype(str) == str(current_pin)) & 
+                (full_df['التاريخ'].astype(str) == day_date)
+            ]
+            if not check_exists.empty:
+                is_already_submitted = True
 
-        with st.form("entry_form"):
-            # Init default values
-            data_row = {col: "لا" for col in EXPECTED_HEADERS}
-            data_row["القرآن"] = "0"
-            data_row["قيام"] = "0"
-            
-            # --- VUE SPÉCIALE: GROUPE AL HUDA ---
-            if current_group == "مجموعة الهدى":
-                st.markdown("**🔍 النسخة المخففة (النقاط مضاعفة)**")
-                
-                st.markdown("<div class='task-header'>🕌 صلاة الفجر</div>", unsafe_allow_html=True)
-                val_fajr = st.selectbox("الفجر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], label_visibility="collapsed")
-                data_row["الفجر_حالة"] = val_fajr
-                
-                st.markdown("<br><div class='task-header'>⏰ الصلوات المفروضة</div>", unsafe_allow_html=True)
-                c1, c2, c3, c4 = st.columns(4)
-                data_row["الظهر_حالة"] = c1.selectbox("الظهر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"])
-                data_row["العصر_حالة"] = c2.selectbox("العصر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"])
-                data_row["المغرب_حالة"] = c3.selectbox("المغرب", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"])
-                data_row["العشاء_حالة"] = c4.selectbox("العشاء", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"])
-                
-                st.markdown("<hr>", unsafe_allow_html=True)
-                
-                cc1, cc2, cc3 = st.columns(3)
-                with cc1:
-                    st.markdown("<div class='task-header'>📖 الورد اليومي</div>", unsafe_allow_html=True)
-                    data_row["القرآن"] = st.selectbox("الكمية", ["0", "ثمن", "ربع", "نصف", "حزب", "حزبين"], label_visibility="collapsed")
-                
-                with cc2:
-                    st.markdown("<div class='task-header'>🌙 قيام الليل</div>", unsafe_allow_html=True)
-                    is_qiyam = st.checkbox("أديت 3 ركعات (الشفع والوتر)")
-                    if is_qiyam: data_row["قيام"] = "3 ركعات"
-                
-                with cc3:
-                    st.markdown("<div class='task-header'>🍽️ صيام التطوع</div>", unsafe_allow_html=True)
-                    is_fasting = st.checkbox("صمت هذا اليوم")
-                    if is_fasting: data_row["الصيام"] = "نعم"
+        if is_already_submitted:
+            st.markdown(f"""
+            <div class="success-box">
+                <h2>✅ تم التسجيل بنجاح لهذا اليوم</h2>
+                <p>لقد قمت بتسجيل بيانات يوم {day_date} مسبقاً. تقبل الله طاعتكم.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        else:
+            # Si pas encore soumis, on affiche le formulaire
+            if datetime.today().weekday() == 4: st.success("🕌 **يوم الجمعة!** لا تنسَ سنن الجمعة.")
 
-            # --- VUE STANDARD: AUTRES GROUPES ---
-            else:
-                if datetime.today().weekday() == 4:
-                    st.markdown('<div class="friday-box">✨ سنن الجمعة</div>', unsafe_allow_html=True)
-                    c_f1, c_f2, c_f3 = st.columns(3)
-                    if c_f1.checkbox("صلاة الجمعة"): data_row["جمعة_صلاة_جمعة"] = "نعم"
-                    if c_f2.checkbox("سورة الكهف"): data_row["جمعة_كهف"] = "نعم"
-                    if c_f3.checkbox("الصلاة على النبي"): data_row["جمعة_صلاة_نبي"] = "نعم"
-
-                with st.expander("🕌 الصلوات المفروضة", expanded=True):
-                    c1, c2, c3 = st.columns(3)
-                    data_row["الفجر_حالة"] = c1.selectbox("الفجر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="f")
-                    if c1.checkbox("سنة الفجر"): data_row["الفجر_سنة"] = "نعم"
+            with st.form("entry_form"):
+                data_row = {col: "لا" for col in EXPECTED_HEADERS}
+                data_row["القرآن"] = "0"
+                data_row["قيام"] = "0"
+                
+                # --- AL HUDA ---
+                if current_group == "مجموعة الهدى":
+                    st.markdown("<div class='task-header'>🕌 صلاة الفجر</div>", unsafe_allow_html=True)
+                    data_row["الفجر_حالة"] = st.selectbox("الفجر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], label_visibility="collapsed")
                     
-                    data_row["الظهر_حالة"] = c2.selectbox("الظهر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="d")
-                    if c2.checkbox("سنة الظهر"): data_row["الظهر_سنة"] = "نعم"
+                    st.markdown("<br><div class='task-header'>⏰ الصلوات المفروضة</div>", unsafe_allow_html=True)
+                    c1, c2, c3, c4 = st.columns(4)
+                    data_row["الظهر_حالة"] = c1.selectbox("الظهر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"])
+                    data_row["العصر_حالة"] = c2.selectbox("العصر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"])
+                    data_row["المغرب_حالة"] = c3.selectbox("المغرب", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"])
+                    data_row["العشاء_حالة"] = c4.selectbox("العشاء", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"])
                     
-                    data_row["العصر_حالة"] = c3.selectbox("العصر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="a")
+                    st.markdown("<hr>", unsafe_allow_html=True)
                     
-                    st.markdown("---")
-                    c4, c5, c6 = st.columns(3)
-                    data_row["المغرب_حالة"] = c4.selectbox("المغرب", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="m")
-                    if c4.checkbox("سنة المغرب"): data_row["المغرب_سنة"] = "نعم"
+                    cc1, cc2, cc3 = st.columns(3)
+                    with cc1:
+                        st.markdown("<div class='task-header'>📖 الورد اليومي</div>", unsafe_allow_html=True)
+                        data_row["القرآن"] = st.selectbox("الكمية", ["0", "ثمن", "ربع", "نصف", "حزب", "حزبين"], label_visibility="collapsed")
                     
-                    data_row["العشاء_حالة"] = c5.selectbox("العشاء", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="i")
-                    if c5.checkbox("سنة العشاء"): data_row["العشاء_سنة"] = "نعم"
+                    with cc2:
+                        st.markdown("<div class='task-header'>🌙 قيام الليل</div>", unsafe_allow_html=True)
+                        if st.checkbox("أديت 3 ركعات (الشفع والوتر)"): data_row["قيام"] = "3 ركعات"
                     
-                    if c6.checkbox("صلاة الضحى"): data_row["الضحى"] = "نعم"
+                    with cc3:
+                        st.markdown("<div class='task-header'>🍽️ صيام التطوع</div>", unsafe_allow_html=True)
+                        if st.checkbox("صمت هذا اليوم"): data_row["الصيام"] = "نعم"
 
-                with st.expander("📖 الروحانيات", expanded=False):
-                    c_z1, c_z2 = st.columns(2)
-                    with c_z1:
-                        st.markdown("**📿 الأذكار**")
-                        if st.checkbox("الصباح"): data_row["أذكار_الصباح"] = "نعم"
-                        if st.checkbox("المساء"): data_row["أذكار_المساء"] = "نعم"
-                        if st.checkbox("دبر الصلاة"): data_row["أذكار_الصلاة"] = "نعم"
-                        if st.checkbox("النوم"): data_row["أذكار_النوم"] = "نعم"
-                        if st.checkbox("سورة الملك"): data_row["سورة_الملك"] = "نعم"
-                    with c_z2:
-                        st.markdown("**🌙 القرآن والقيام**")
-                        data_row["القرآن"] = st.selectbox("الورد القرآني", ["0", "ثمن", "ربع", "نصف", "حزب", "حزبين"])
-                        data_row["قيام"] = st.selectbox("قيام الليل", ["0", "ركعتان", "4 ركعات", "6 ركعات", "8 ركعات"])
-
-                with st.expander("🌱 أعمال البر", expanded=False):
-                    b1, b2, b3, b4, b5 = st.columns(5)
-                    if b1.checkbox("صيام"): data_row["الصيام"] = "نعم"
-                    if b2.checkbox("قراءة"): data_row["قراءة_كتاب"] = "نعم"
-                    if b3.checkbox("بر"): data_row["أسرة"] = "نعم"
-                    if b4.checkbox("تدارس"): data_row["مجلس التدارس"] = "نعم"
-                    if b5.checkbox("تعهد"): data_row["التعهد"] = "نعم"
-
-            st.markdown("<br>", unsafe_allow_html=True)
-            submit = st.form_submit_button("✅ حفظ البيانات", use_container_width=True)
-
-            if submit:
-                day_date = datetime.now().strftime("%Y-%m-%d")
-                # Vérification doublon
-                is_duplicate = False
-                if not full_df.empty:
-                    user_check = full_df[(full_df['الاسم'] == current_user) & (full_df['الرمز_الشخصي'].astype(str) == str(current_pin))]
-                    if day_date in user_check['التاريخ'].astype(str).values: is_duplicate = True
-                
-                if is_duplicate:
-                    st.error(f"⛔ لقد قمت بتسجيل بيانات يوم {day_date} مسبقاً.")
+                # --- STANDARD ---
                 else:
+                    if datetime.today().weekday() == 4:
+                        st.markdown('<div class="friday-box">✨ سنن الجمعة</div>', unsafe_allow_html=True)
+                        c_f1, c_f2, c_f3 = st.columns(3)
+                        if c_f1.checkbox("صلاة الجمعة"): data_row["جمعة_صلاة_جمعة"] = "نعم"
+                        if c_f2.checkbox("سورة الكهف"): data_row["جمعة_كهف"] = "نعم"
+                        if c_f3.checkbox("الصلاة على النبي"): data_row["جمعة_صلاة_نبي"] = "نعم"
+
+                    with st.expander("🕌 الصلوات المفروضة", expanded=True):
+                        c1, c2, c3 = st.columns(3)
+                        data_row["الفجر_حالة"] = c1.selectbox("الفجر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="f")
+                        if c1.checkbox("سنة الفجر"): data_row["الفجر_سنة"] = "نعم"
+                        
+                        data_row["الظهر_حالة"] = c2.selectbox("الظهر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="d")
+                        if c2.checkbox("سنة الظهر"): data_row["الظهر_سنة"] = "نعم"
+                        
+                        data_row["العصر_حالة"] = c3.selectbox("العصر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="a")
+                        
+                        st.markdown("---")
+                        c4, c5, c6 = st.columns(3)
+                        data_row["المغرب_حالة"] = c4.selectbox("المغرب", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="m")
+                        if c4.checkbox("سنة المغرب"): data_row["المغرب_سنة"] = "نعم"
+                        
+                        data_row["العشاء_حالة"] = c5.selectbox("العشاء", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="i")
+                        if c5.checkbox("سنة العشاء"): data_row["العشاء_سنة"] = "نعم"
+                        
+                        if c6.checkbox("صلاة الضحى"): data_row["الضحى"] = "نعم"
+
+                    with st.expander("📖 الروحانيات", expanded=False):
+                        c_z1, c_z2 = st.columns(2)
+                        with c_z1:
+                            st.markdown("**📿 الأذكار**")
+                            if st.checkbox("الصباح"): data_row["أذكار_الصباح"] = "نعم"
+                            if st.checkbox("المساء"): data_row["أذكار_المساء"] = "نعم"
+                            if st.checkbox("دبر الصلاة"): data_row["أذكار_الصلاة"] = "نعم"
+                            if st.checkbox("النوم"): data_row["أذكار_النوم"] = "نعم"
+                            if st.checkbox("سورة الملك"): data_row["سورة_الملك"] = "نعم"
+                        with c_z2:
+                            st.markdown("**🌙 القرآن والقيام**")
+                            data_row["القرآن"] = st.selectbox("الورد القرآني", ["0", "ثمن", "ربع", "نصف", "حزب", "حزبين"])
+                            data_row["قيام"] = st.selectbox("قيام الليل", ["0", "ركعتان", "4 ركعات", "6 ركعات", "8 ركعات"])
+
+                    with st.expander("🌱 أعمال البر", expanded=False):
+                        b1, b2, b3, b4, b5 = st.columns(5)
+                        if b1.checkbox("صيام"): data_row["الصيام"] = "نعم"
+                        if b2.checkbox("قراءة"): data_row["قراءة_كتاب"] = "نعم"
+                        if b3.checkbox("بر"): data_row["أسرة"] = "نعم"
+                        if b4.checkbox("تدارس"): data_row["مجلس التدارس"] = "نعم"
+                        if b5.checkbox("تعهد"): data_row["التعهد"] = "نعم"
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                submit = st.form_submit_button("✅ حفظ البيانات", use_container_width=True)
+
+                if submit:
                     final_row = []
                     data_row["التاريخ"] = day_date
                     data_row["الاسم"] = current_user
@@ -488,16 +488,17 @@ else:
                         st.error(f"خطأ تقني: {e}")
 
     with tab2:
-        st.markdown("### 🏆 لوحة الصدارة (مجموعتي فقط)")
+        st.markdown("### 🏆 لوحة الصدارة")
         if not full_df.empty:
             display_df = full_df[full_df['المجموعة'] == current_group].copy()
             if not display_df.empty:
                 gen_board = display_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
-                gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x))
+                gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
+                gen_board['اللقب'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[1])
                 gen_board.insert(0, 'الترتيب', gen_board.index + 1)
                 
                 st.dataframe(
-                    gen_board[['الترتيب', 'الرمز_الشخصي', 'المستوى', 'Score']].rename(columns={'الرمز_الشخصي': 'الرمز'}), 
+                    gen_board[['الترتيب', 'الرمز_الشخصي', 'المستوى', 'Score', 'اللقب']].rename(columns={'الرمز_الشخصي': 'الرمز'}), 
                     use_container_width=True, hide_index=True
                 )
             else: st.info("لا توجد بيانات.")
@@ -505,13 +506,11 @@ else:
 
     with tab3:
         st.markdown("### 📈 تطور مستواي")
-        
         if not full_df.empty:
             my_hist = full_df[full_df['الرمز_الشخصي'].astype(str) == str(current_pin)].copy()
             if not my_hist.empty:
                 my_hist = my_hist.dropna(subset=['DateObj']).sort_values(by='DateObj')
                 my_hist.set_index('DateObj', inplace=True)
-                
                 st.line_chart(my_hist['Score'])
                 
                 if current_group == "مجموعة الهدى":
