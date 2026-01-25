@@ -21,43 +21,24 @@ st.markdown("""
     .metric-card h1 { color: #009688; font-weight: bold; margin: 0; }
     .stButton>button { background: linear-gradient(135deg, #009688 0%, #00796b 100%); color: white !important; border-radius: 12px; width: 100%; font-weight:bold; }
     .task-header { color: #00796b; font-weight: bold; border-bottom: 2px solid #e0f2f1; padding-bottom: 5px; }
-    
-    /* BOITE ROUGE DE BLOCAGE */
     .locked-box { 
         background-color: #ffebee; 
         border: 2px solid #ef5350; 
         color: #c62828; 
-        padding: 30px; 
+        padding: 20px; 
         border-radius: 15px; 
         text-align: center; 
-        font-size: 1.4em; 
         font-weight: bold; 
         margin: 20px 0; 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        animation: shake 0.5s;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
-    
     .result-box { background-color: #e0f2f1; border: 2px solid #009688; border-radius: 15px; padding: 20px; text-align: center; animation: fadeIn 1s; }
-    
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes shake {
-        0% { transform: translate(1px, 1px) rotate(0deg); }
-        10% { transform: translate(-1px, -2px) rotate(-1deg); }
-        20% { transform: translate(-3px, 0px) rotate(1deg); }
-        30% { transform: translate(3px, 2px) rotate(0deg); }
-        40% { transform: translate(1px, -1px) rotate(1deg); }
-        50% { transform: translate(-1px, 2px) rotate(-1deg); }
-        60% { transform: translate(-3px, 1px) rotate(0deg); }
-        70% { transform: translate(3px, 1px) rotate(-1deg); }
-        80% { transform: translate(-1px, -1px) rotate(1deg); }
-        90% { transform: translate(1px, 2px) rotate(0deg); }
-        100% { transform: translate(1px, -2px) rotate(-1deg); }
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. DONNÉES
+# 2. CONFIGURATION
 # ==========================================
 GROUPS_CONFIG = {
     "مجموعة الفردوس": "Firdaws@786!Top",
@@ -240,10 +221,18 @@ else:
     with t1:
         today = datetime.now().strftime("%Y-%m-%d")
         
-        # ⚠️ VÉRIFICATION STRICTE AU DÉMARRAGE
-        # Est-ce que cette personne a déjà une ligne pour AUJOURD'HUI ?
+        # ⚠️ CRÉATION DE LA CLÉ DE SESSION UNIQUE POUR AUJOURD'HUI
+        # Cette clé sert à mémoriser LOCALEMENT que l'utilisateur a fini
+        session_done_key = f"done_{today}_{c_user}"
+        
         is_done_today = False
-        if not df.empty:
+        
+        # 1. Vérification dans la session (Mémoire immédiate)
+        if st.session_state.get(session_done_key, False):
+            is_done_today = True
+            
+        # 2. Vérification dans le Sheet (Mémoire long terme)
+        elif not df.empty:
             check = df[
                 (df['الاسم'] == c_user) & 
                 (df['الرمز_الشخصي'] == c_pin) & 
@@ -251,30 +240,28 @@ else:
             ]
             if not check.empty:
                 is_done_today = True
+                # On met à jour la session aussi
+                st.session_state[session_done_key] = True
 
-        # 🛑 LOGIQUE DE BLOCAGE
         if is_done_today:
-            # Si oui : ON BLOQUE TOUT. Pas de formulaire. Juste le message.
             st.markdown(f"""
             <div class="locked-box">
                 ⛔ التسجيل مغلق<br>
                 <br>
-                لقد قمت بتسجيل نقاط يوم <b>{today}</b> بالفعل.<br>
-                لا يمكن التعديل أو الإضافة مرة أخرى.<br>
+                لقد قمت بتسجيل نقاط يوم <b>{today}</b> بنجاح.<br>
+                لا يمكن الإضافة مرة أخرى.<br>
                 <br>
                 ✨ نلتقي غداً إن شاء الله ✨
             </div>
             """, unsafe_allow_html=True)
         
         else:
-            # Si non : On affiche le formulaire
             if datetime.today().weekday() == 4: st.success("🕌 **يوم الجمعة!** لا تنسَ سنن الجمعة.")
 
             with st.form("f"):
                 row = {c: "لا" for c in EXPECTED_HEADERS}
                 row["القرآن"] = "0"; row["قيام"] = "0"; row["المجموعة"] = c_grp
                 
-                # Formulaire Dynamique
                 if c_grp in ["مجموعة الهدى", "مجموعة السائرين"]:
                     st.markdown(f"**تسجيل {c_grp}**")
                     st.markdown("🕌 **الفجر**")
@@ -308,44 +295,42 @@ else:
                 sub = st.form_submit_button("✅ حفظ")
             
             if sub:
-                # ⚠️ DERNIÈRE VÉRIFICATION (ANTI DOUBLE-CLIC)
-                final_check = False
+                # ⚠️ 3. ULTIME VERIFICATION AVANT ECRITURE
+                already_in_sheet = False
                 if not df.empty:
-                    # On revérifie la base de données au moment EXACT du clic
-                    # au cas où l'utilisateur aurait deux onglets ouverts
                     if not df[(df['الاسم']==c_user)&(df['الرمز_الشخصي']==c_pin)&(df['التاريخ'].astype(str)==today)].empty:
-                        final_check = True
+                        already_in_sheet = True
                 
-                if final_check:
-                    st.error("⛔ عذراً! تم التسجيل بالفعل. لا يمكن الإرسال مرتين.")
+                # Si déjà en session OU déjà dans Sheet -> BLOQUAGE
+                if st.session_state.get(session_done_key, False) or already_in_sheet:
+                    st.error("⛔ تم التسجيل بالفعل!")
+                    st.session_state[session_done_key] = True # On force le lock
                     time.sleep(2)
                     st.rerun()
                 else:
                     final = [today, c_user, c_pin, c_grp] + [row.get(h, "لا") for h in EXPECTED_HEADERS[4:]]
                     try:
-                        with st.spinner("جاري الحفظ..."):
-                            sheet_data.append_row(final)
-                            
-                            # Calcul Score pour affichage immédiat
-                            row['المجموعة'] = c_grp
-                            score_day = calculate_score(row)
-                            new_tot = my_xp + score_day
-                            nxt_lvl = get_level(new_tot)
-                            rem = (nxt_lvl * 300) - new_tot
-                            
-                            st.balloons()
-                            st.markdown(f"""
-                            <div class="result-box">
-                                <h3>🎉 تم الحفظ!</h3>
-                                <h2>+{score_day} نقطة</h2>
-                                <p>المجموع الجديد: <b>{new_tot}</b> | باقي للمستوى القادم: <b>{rem}</b></p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # On force le rechargement pour que la page affiche le blocage
-                            time.sleep(3)
-                            st.rerun()
-                            
+                        sheet_data.append_row(final)
+                        
+                        # 🔒 VERROUILLAGE IMMÉDIAT EN MÉMOIRE
+                        st.session_state[session_done_key] = True
+                        
+                        row['المجموعة'] = c_grp
+                        score_day = calculate_score(row)
+                        new_tot = my_xp + score_day
+                        nxt_lvl = get_level(new_tot)
+                        rem = (nxt_lvl * 300) - new_tot
+                        
+                        st.balloons()
+                        st.markdown(f"""
+                        <div class="result-box">
+                            <h3>🎉 تم الحفظ!</h3>
+                            <h2>+{score_day} نقطة</h2>
+                            <p>المجموع الجديد: <b>{new_tot}</b> | باقي للمستوى القادم: <b>{rem}</b></p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        time.sleep(3)
+                        st.rerun()
                     except Exception as e: st.error(f"Erreur: {e}")
 
     with t2:
