@@ -90,13 +90,6 @@ st.markdown("""
         margin-bottom: 15px;
         font-weight: bold;
     }
-    
-    /* Style pour le tableau récapitulatif */
-    .recap-table {
-        margin: auto;
-        border-collapse: collapse;
-        width: 100%;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -111,7 +104,6 @@ MOTIVATIONAL_QUOTES = [
     "أقرب ما يكون العبد من ربه وهو ساجد"
 ]
 
-# 🔑 CONFIGURATION DES GROUPES
 GROUPS_CONFIG = {
     "مجموعة الفردوس": "Firdaws@786!Top",
     "مجموعة الريان": "Rayyan#2025$Win",
@@ -122,7 +114,6 @@ GROUPS_CONFIG = {
     "الإدارة": "Admin@MasterKey99!"
 }
 
-# Liste complète des colonnes
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم", "الرمز_الشخصي", "المجموعة",
     "الفجر_حالة", "الفجر_سنة", "الضحى", 
@@ -200,7 +191,6 @@ def calculate_score(row):
     score = 0
     group = safe_str(row.get('المجموعة'))
     
-    # === LOGIQUE POUR LES GROUPES SIMPLIFIÉS (Huda + Saerin) ===
     if group in ["مجموعة الهدى", "مجموعة السائرين"]:
         fajr = safe_str(row.get('الفجر_حالة'))
         if fajr == 'جماعة (مسجد)': score += 50
@@ -218,7 +208,6 @@ def calculate_score(row):
         
         return score
 
-    # === LOGIQUE STANDARD ===
     else:
         prayers_map = {'الفجر': 'الفجر_حالة', 'الظهر': 'الظهر_حالة', 'العصر': 'العصر_حالة', 'المغرب': 'المغرب_حالة', 'العشاء': 'العشاء_حالة'}
         for p_name, col_name in prayers_map.items():
@@ -328,7 +317,6 @@ if not full_df.empty:
             my_level, _ = get_level_and_rank(my_total_xp)
             my_rank = my_stats.iloc[0]['الترتيب']
             
-            # Streak calculation
             my_history = group_df[(group_df['الاسم'] == current_user) & (group_df['الرمز_الشخصي'].astype(str) == str(current_pin))].sort_values('DateObj', ascending=False)
             if not my_history.empty:
                 last_date = my_history.iloc[0]['DateObj']
@@ -383,7 +371,6 @@ if current_group == "الإدارة":
         if not display_df.empty:
             gen_board = display_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False)
             gen_board.insert(0, 'الترتيب', range(1, 1 + len(gen_board)))
-            
             gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
             st.dataframe(gen_board, use_container_width=True, hide_index=True)
         else: st.info("لا توجد بيانات.")
@@ -396,7 +383,6 @@ else:
         st.markdown("### 🤲 تسجيل إنجاز اليوم")
         day_date = datetime.now().strftime("%Y-%m-%d")
         
-        # ⚠️ VERIFICATION DOUBLE ENTREE
         is_already_submitted = False
         if not full_df.empty:
             check_exists = full_df[
@@ -422,12 +408,15 @@ else:
             if today_idx in [0, 3]: 
                 st.info("📅 اليوم هو الإثنين أو الخميس، فرصة رائعة للصيام!")
 
+            # ----------------------------------------------------
+            # 📝 DÉBUT DU FORMULAIRE
+            # ----------------------------------------------------
             with st.form("entry_form"):
                 data_row = {col: "لا" for col in EXPECTED_HEADERS}
                 data_row["القرآن"] = "0"
                 data_row["قيام"] = "0"
                 
-                # --- NOUVEAU GROUPE & AL HUDA ---
+                # --- GROUPE SIMPLIFIÉ ---
                 if current_group in ["مجموعة الهدى", "مجموعة السائرين"]:
                     st.markdown(f"**نموذج {current_group}**")
                     
@@ -465,7 +454,7 @@ else:
                         st.caption(f"هل صمت اليوم ({day_date})؟")
                         if st.checkbox("نعم، صمت هذا اليوم"): data_row["الصيام"] = "نعم"
 
-                # --- STANDARD (AUTRES GROUPES) ---
+                # --- GROUPE STANDARD ---
                 else:
                     if datetime.today().weekday() == 4:
                         st.markdown('<div class="friday-box">✨ سنن الجمعة</div>', unsafe_allow_html=True)
@@ -529,46 +518,46 @@ else:
                         if b5.checkbox("تعهد"): data_row["التعهد"] = "نعم"
 
                 st.markdown("<br>", unsafe_allow_html=True)
-                submit = st.form_submit_button("✅ حفظ البيانات", use_container_width=True)
+                submitted = st.form_submit_button("✅ حفظ البيانات", use_container_width=True)
 
-                if submit:
-                    final_row = []
-                    data_row["التاريخ"] = day_date
-                    data_row["الاسم"] = current_user
-                    data_row["الرمز_الشخصي"] = current_pin
-                    data_row["المجموعة"] = current_group
+            # ----------------------------------------------------
+            # 🚀 TRAITEMENT APRÈS SOUMISSION (HORS DU FORMULAIRE)
+            # ----------------------------------------------------
+            if submitted:
+                final_row = []
+                data_row["التاريخ"] = day_date
+                data_row["الاسم"] = current_user
+                data_row["الرمز_الشخصي"] = current_pin
+                data_row["المجموعة"] = current_group
+                
+                for header in EXPECTED_HEADERS:
+                    final_row.append(data_row.get(header, "لا"))
                     
-                    for header in EXPECTED_HEADERS:
-                        final_row.append(data_row.get(header, "لا"))
+                try:
+                    with st.spinner("جاري الحفظ..."):
+                        sheet_data.append_row(final_row)
+                        st.balloons()
+                        st.success("✅ تم الحفظ بنجاح! إليك ملخص ما سجلته:")
                         
-                    try:
-                        with st.spinner("جاري الحفظ..."):
-                            sheet_data.append_row(final_row)
-                            st.balloons()
-                            st.success("✅ تم الحفظ بنجاح! إليك ملخص ما سجلته:")
-                            
-                            # --- AFFICHAGE RÉCAPITULATIF (TICKET) ---
-                            summary_data = []
-                            # On choisit les colonnes importantes à afficher
-                            key_cols = ['الفجر_حالة', 'الظهر_حالة', 'العصر_حالة', 'المغرب_حالة', 'العشاء_حالة', 'القرآن', 'قيام', 'الصيام']
-                            
-                            for k, v in data_row.items():
-                                # On nettoie un peu l'affichage
-                                if k in key_cols and v not in ['لا', '0', '']:
-                                    clean_k = k.replace("_حالة", "")
-                                    summary_data.append({"العمل": clean_k, "الإنجاز": v})
-                            
-                            if summary_data:
-                                st.table(pd.DataFrame(summary_data))
-                            else:
-                                st.info("لم يتم تسجيل أي عمل خاص لهذا اليوم.")
+                        # Résumé visuel
+                        summary_data = []
+                        key_cols = ['الفجر_حالة', 'الظهر_حالة', 'العصر_حالة', 'المغرب_حالة', 'العشاء_حالة', 'القرآن', 'قيام', 'الصيام']
+                        
+                        for k, v in data_row.items():
+                            if k in key_cols and v not in ['لا', '0', '']:
+                                clean_k = k.replace("_حالة", "")
+                                summary_data.append({"العمل": clean_k, "الإنجاز": v})
+                        
+                        if summary_data:
+                            st.table(pd.DataFrame(summary_data))
+                        else:
+                            st.info("لم يتم تسجيل أي عمل خاص.")
 
-                            # Pas de rerun automatique pour laisser le temps de lire
-                            if st.button("🔄 تحديث الصفحة (Fermer)"):
-                                st.rerun()
-                                
-                    except Exception as e:
-                        st.error(f"خطأ تقني: {e}")
+                        if st.button("🔄 تحديث الصفحة (إغلاق)"):
+                            st.rerun()
+                            
+                except Exception as e:
+                    st.error(f"خطأ تقني: {e}")
 
     with tab2:
         st.markdown("### 🏆 لوحة الصدارة")
