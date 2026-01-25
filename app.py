@@ -104,6 +104,7 @@ MOTIVATIONAL_QUOTES = [
     "أقرب ما يكون العبد من ربه وهو ساجد"
 ]
 
+# 🔑 CONFIGURATION DES GROUPES
 GROUPS_CONFIG = {
     "مجموعة الفردوس": "Firdaws@786!Top",
     "مجموعة الريان": "Rayyan#2025$Win",
@@ -114,6 +115,7 @@ GROUPS_CONFIG = {
     "الإدارة": "Admin@MasterKey99!"
 }
 
+# Liste complète des colonnes
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم", "الرمز_الشخصي", "المجموعة",
     "الفجر_حالة", "الفجر_سنة", "الضحى", 
@@ -191,6 +193,7 @@ def calculate_score(row):
     score = 0
     group = safe_str(row.get('المجموعة'))
     
+    # === LOGIQUE SIMPLIFIÉE (Huda + Saerin) ===
     if group in ["مجموعة الهدى", "مجموعة السائرين"]:
         fajr = safe_str(row.get('الفجر_حالة'))
         if fajr == 'جماعة (مسجد)': score += 50
@@ -208,6 +211,7 @@ def calculate_score(row):
         
         return score
 
+    # === LOGIQUE STANDARD ===
     else:
         prayers_map = {'الفجر': 'الفجر_حالة', 'الظهر': 'الظهر_حالة', 'العصر': 'العصر_حالة', 'المغرب': 'المغرب_حالة', 'العشاء': 'العشاء_حالة'}
         for p_name, col_name in prayers_map.items():
@@ -243,7 +247,9 @@ def calculate_score(row):
         return min(score, 250)
 
 def get_level_and_rank(total_points):
+    # Changement ici : division par 300 au lieu de 500
     level = 1 + (int(total_points) // 300)
+    
     if level < 5: title = "مبتدئ (🌱)"
     elif level < 10: title = "مجتهد (💪)"
     elif level < 20: title = "سابق (🚀)"
@@ -408,9 +414,6 @@ else:
             if today_idx in [0, 3]: 
                 st.info("📅 اليوم هو الإثنين أو الخميس، فرصة رائعة للصيام!")
 
-            # ----------------------------------------------------
-            # 📝 DÉBUT DU FORMULAIRE
-            # ----------------------------------------------------
             with st.form("entry_form"):
                 data_row = {col: "لا" for col in EXPECTED_HEADERS}
                 data_row["القرآن"] = "0"
@@ -520,9 +523,7 @@ else:
                 st.markdown("<br>", unsafe_allow_html=True)
                 submitted = st.form_submit_button("✅ حفظ البيانات", use_container_width=True)
 
-            # ----------------------------------------------------
-            # 🚀 TRAITEMENT APRÈS SOUMISSION (HORS DU FORMULAIRE)
-            # ----------------------------------------------------
+            # TRAITEMENT APRÈS SOUMISSION
             if submitted:
                 final_row = []
                 data_row["التاريخ"] = day_date
@@ -539,7 +540,6 @@ else:
                         st.balloons()
                         st.success("✅ تم الحفظ بنجاح! إليك ملخص ما سجلته:")
                         
-                        # Résumé visuel
                         summary_data = []
                         key_cols = ['الفجر_حالة', 'الظهر_حالة', 'العصر_حالة', 'المغرب_حالة', 'العشاء_حالة', 'القرآن', 'قيام', 'الصيام']
                         
@@ -559,22 +559,59 @@ else:
                 except Exception as e:
                     st.error(f"خطأ تقني: {e}")
 
-    with tab2:
-        st.markdown("### 🏆 لوحة الصدارة")
+        # === 📅 AJOUT : HISTORIQUE JOURNALIER EN BAS DE L'ONGLET 1 ===
+        st.markdown("---")
+        st.markdown("### 📅 أرشيف يومياتك (ملخص)")
+        
         if not full_df.empty:
-            display_df = full_df[full_df['المجموعة'] == current_group].copy()
-            if not display_df.empty:
-                gen_board = display_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
-                gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
-                gen_board['اللقب'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[1])
-                gen_board.insert(0, 'الترتيب', gen_board.index + 1)
+            # Filtrer pour l'utilisateur actuel
+            my_history_full = full_df[
+                (full_df['الاسم'] == current_user) & 
+                (full_df['الرمز_الشخصي'].astype(str) == str(current_pin))
+            ].copy()
+            
+            if not my_history_full.empty:
+                # Trier par date décroissante
+                my_history_full = my_history_full.sort_values('DateObj', ascending=False)
+                
+                # Sélectionner les colonnes pertinentes à afficher pour un récapitulatif
+                if current_group in ["مجموعة الهدى", "مجموعة السائرين"]:
+                    cols_to_show = ['التاريخ', 'الفجر_حالة', 'القرآن', 'قيام', 'الصيام', 'Score']
+                else:
+                    cols_to_show = ['التاريخ', 'الفجر_حالة', 'القرآن', 'قيام', 'Score']
+                
+                # Filtrer pour ne garder que les colonnes qui existent
+                existing_cols = [c for c in cols_to_show if c in my_history_full.columns]
                 
                 st.dataframe(
-                    gen_board[['الترتيب', 'الرمز_الشخصي', 'المستوى', 'Score', 'اللقب']].rename(columns={'الرمز_الشخصي': 'الرمز'}), 
+                    my_history_full[existing_cols],
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("لا توجد سجلات سابقة.")
+
+    with tab2:
+        st.markdown("### 🏆 لوحة الصدارة (مجموعتي)")
+        if not full_df.empty:
+            # 1. Filtrer par groupe
+            display_df = full_df[full_df['المجموعة'] == current_group].copy()
+            
+            if not display_df.empty:
+                # 2. Grouper et sommer les scores
+                gen_board = display_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
+                
+                # 3. Calculer les niveaux et le rang
+                gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
+                gen_board.insert(0, 'الترتيب', gen_board.index + 1)
+                
+                # 4. Afficher
+                st.dataframe(
+                    gen_board[['الترتيب', 'الرمز_الشخصي', 'المستوى', 'Score']].rename(columns={'الرمز_الشخصي': 'الرمز'}), 
                     use_container_width=True, hide_index=True
                 )
-            else: st.info("لا توجد بيانات.")
-        else: st.info("لا توجد بيانات.")
+            else: st.info("لا توجد بيانات لهذه المجموعة.")
+        else: st.info("قاعدة البيانات فارغة.")
 
     with tab3:
         st.markdown("### 📈 تطور مستواي")
