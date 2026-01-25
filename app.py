@@ -163,10 +163,10 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 def check_login():
-    # ⚠️ Nettoyage strict des espaces pour éviter les erreurs
-    input_user = st.session_state.login_user.strip()
-    input_pin = st.session_state.login_pin.strip()
-    input_pass = st.session_state.login_pass.strip()
+    # ⚠️ Nettoyage strict des entrées (suppression des espaces invisibles)
+    input_user = str(st.session_state.login_user).strip()
+    input_pin = str(st.session_state.login_pin).strip()
+    input_pass = str(st.session_state.login_pass).strip()
     
     found_group = None
     for group_name, group_pass in GROUPS_CONFIG.items():
@@ -190,7 +190,7 @@ def calculate_score(row):
     score = 0
     group = safe_str(row.get('المجموعة'))
     
-    # 🚀 GROUPE AL HUDA & SAERIN (Logique Simplifiée)
+    # 🚀 GROUPE AL HUDA & SAERIN (Points Boostés)
     if group in ["مجموعة الهدى", "مجموعة السائرين"]:
         fajr = safe_str(row.get('الفجر_حالة'))
         if fajr == 'جماعة (مسجد)': score += 50
@@ -225,13 +225,13 @@ def calculate_score(row):
         if safe_str(row.get('سورة_الملك')) == 'نعم': score += 5
         
         quran_val = safe_str(row.get('القرآن'))
-        if quran_val not in ['0', 'لا', '']: score += 10 # Simplifié pour debug
+        if quran_val not in ['0', 'لا', '']: score += 10
         
         if safe_str(row.get('قيام')) not in ['0', 'لا', '']: score += 10
 
         good_deeds = ['الصيام', 'قراءة_كتاب', 'أسرة', 'مجلس التدارس', 'التعهد']
         for deed in good_deeds:
-            if safe_str(row.get(deed)) == 'نعم': score += 5 # Simplifié
+            if safe_str(row.get(deed)) == 'نعم': score += 5
 
         if safe_str(row.get('جمعة_كهف')) == 'نعم': score += 15
         if safe_str(row.get('جمعة_صلاة_نبي')) == 'نعم': score += 15
@@ -240,6 +240,7 @@ def calculate_score(row):
         return min(score, 250)
 
 def get_level_and_rank(total_points):
+    # Palier de 300 points
     level = 1 + (int(total_points) // 300)
     return level
 
@@ -265,10 +266,11 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==========================================
-# 6. CHARGEMENT ET NETTOYAGE (CRUCIAL POUR L'AFFICHAGE)
+# 6. CHARGEMENT & CALCULS (NETTOYAGE ET SÉCURITÉ)
 # ==========================================
-current_user = st.session_state["user_name"].strip()
-current_pin = st.session_state["user_pin"].strip()
+# ⚠️ On s'assure que les données de session sont des chaînes propres sans espaces
+current_user = str(st.session_state["user_name"]).strip()
+current_pin = str(st.session_state["user_pin"]).strip()
 current_group = st.session_state["user_group"]
 
 my_total_xp = 0
@@ -283,32 +285,37 @@ except:
     full_df = pd.DataFrame()
 
 if not full_df.empty:
-    # ⚠️ Nettoyage complet des colonnes critiques
+    current_cols = full_df.columns.tolist()
+    if not set(EXPECTED_HEADERS).issubset(current_cols):
+        try: sheet_data.update('A1', [EXPECTED_HEADERS])
+        except: pass
+
+    for col in EXPECTED_HEADERS:
+        if col not in full_df.columns: full_df[col] = ""
+
+    # ⚠️ NETTOYAGE CRITIQUE : Conversion en string et suppression espaces pour la correspondance
     full_df['الاسم'] = full_df['الاسم'].astype(str).str.strip()
     full_df['الرمز_الشخصي'] = full_df['الرمز_الشخصي'].astype(str).str.strip()
     full_df['المجموعة'] = full_df['المجموعة'].astype(str).str.strip()
-    
-    # Remplir les vides
-    for col in EXPECTED_HEADERS:
-        if col not in full_df.columns: full_df[col] = ""
 
     # Calculs
     full_df['Score'] = full_df.apply(calculate_score, axis=1)
     full_df['Score'] = pd.to_numeric(full_df['Score'], errors='coerce').fillna(0)
     full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
     
-    # Filtrage par groupe
+    # Filtrage
     if current_group == "الإدارة":
         group_df = full_df.copy()
     else:
         group_df = full_df[full_df['المجموعة'] == current_group].copy()
 
     if not group_df.empty:
-        # ⚠️ CLASSEMENT
+        # Classement
         temp_leaderboard = group_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
         temp_leaderboard.insert(0, 'الترتيب', temp_leaderboard.index + 1)
         
-        # ⚠️ RÉCUPÉRATION DES STATS DE L'UTILISATEUR (MATCH EXACT)
+        # ⚠️ RÉCUPÉRATION ROBUSTE DES STATS
+        # On cherche une correspondance exacte après nettoyage
         my_stats = temp_leaderboard[
             (temp_leaderboard['الاسم'] == current_user) & 
             (temp_leaderboard['الرمز_الشخصي'] == current_pin)
@@ -331,7 +338,7 @@ with col_h2:
         st.session_state["authenticated"] = False
         st.rerun()
 
-# 📊 Barre de progression
+# 📊 Calcul de progression
 points_next = (my_level * 300) - my_total_xp
 prog = max(0.0, min(1.0, 1 - (points_next / 300)))
 
@@ -347,7 +354,7 @@ if current_group != "الإدارة":
 st.markdown("---")
 
 # ==========================================
-# 8. TABS
+# 8. TABS (ENREGISTREMENT & RÉSULTATS)
 # ==========================================
 if current_group == "الإدارة":
     st.markdown("## 👮‍♂️ لوحة تحكم الإدارة")
@@ -368,7 +375,7 @@ else:
         st.markdown("### 🤲 تسجيل إنجاز اليوم")
         day_date = datetime.now().strftime("%Y-%m-%d")
         
-        # ⚠️ VERIFICATION D'EXISTENCE (SÉCURITÉ 1)
+        # ⚠️ SÉCURITÉ 1 : VÉRIFICATION INITIALE
         is_already_submitted = False
         if not full_df.empty:
             check_exists = full_df[
@@ -380,6 +387,7 @@ else:
                 is_already_submitted = True
 
         if is_already_submitted:
+            # Si déjà fait, on AFFICHE LE MESSAGE et on NE MONTRE PAS le formulaire
             st.markdown(f"""
             <div class="locked-box">
                 ✅ تم تسجيل هذا اليوم ({day_date}) بنجاح.<br>
@@ -388,6 +396,7 @@ else:
             """, unsafe_allow_html=True)
         
         else:
+            # Si pas fait, on montre le formulaire
             if datetime.today().weekday() == 4: st.success("🕌 **يوم الجمعة!** لا تنسَ سنن الجمعة.")
 
             with st.form("entry_form"):
@@ -430,6 +439,7 @@ else:
                         if st.checkbox("نعم، صمت هذا اليوم"): data_row["الصيام"] = "نعم"
 
                 else:
+                    # STANDARD GROUP FORM
                     with st.expander("🕌 الصلوات المفروضة", expanded=True):
                         c1, c2, c3 = st.columns(3)
                         with c1:
@@ -483,7 +493,7 @@ else:
                 submitted = st.form_submit_button("✅ حفظ وتسجيل النقاط", use_container_width=True)
 
             if submitted:
-                # ⚠️ SÉCURITÉ 2 (Anti-Doublon Rapide)
+                # ⚠️ SÉCURITÉ 2 : REVÉRIFICATION AU MOMENT DU CLIC
                 already_done = False
                 if not full_df.empty:
                     check_exists_now = full_df[
@@ -528,8 +538,8 @@ else:
                             </div>
                             """, unsafe_allow_html=True)
 
-                            # ⚠️ RERUN FORCÉ POUR VERROUILLER LE FORMULAIRE
-                            time.sleep(2)
+                            # ⚠️ RERUN FORCÉ POUR CACHER LE FORMULAIRE IMMÉDIATEMENT APRÈS
+                            time.sleep(3)
                             st.rerun()
                                 
                     except Exception as e:
@@ -564,7 +574,7 @@ else:
                     gen_board[['الترتيب', 'الرمز_الشخصي', 'المستوى', 'Score']].rename(columns={'الرمز_الشخصي': 'الرمز'}), 
                     use_container_width=True, hide_index=True
                 )
-            else: st.info("لا توجد بيانات.")
+            else: st.info("لا توجد بيانات لهذه المجموعة.")
         else: st.info("قاعدة البيانات فارغة.")
 
     with tab3:
