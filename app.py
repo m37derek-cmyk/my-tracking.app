@@ -21,6 +21,7 @@ st.markdown("""
     .metric-card h1 { color: #009688; font-weight: bold; margin: 0; }
     .stButton>button { background: linear-gradient(135deg, #009688 0%, #00796b 100%); color: white !important; border-radius: 12px; width: 100%; font-weight:bold; }
     .task-header { color: #00796b; font-weight: bold; border-bottom: 2px solid #e0f2f1; padding-bottom: 5px; }
+    
     .locked-box { 
         background-color: #ffebee; 
         border: 2px solid #ef5350; 
@@ -198,6 +199,7 @@ with c1: st.markdown(f"### 🚩 {c_grp} | {c_user}")
 with c2: 
     if st.button("خروج"):
         st.session_state["authenticated"] = False
+        if "submit_lock" in st.session_state: del st.session_state["submit_lock"]
         st.rerun()
 
 if c_grp != "الإدارة":
@@ -218,20 +220,18 @@ if c_grp == "الإدارة":
 else:
     t1, t2, t3 = st.tabs(["📝 اليوم", "🏆 الصدارة", "📈 سجلي"])
     
+    # ------------------
+    # TAB 1 : ENREGISTREMENT
+    # ------------------
     with t1:
         today = datetime.now().strftime("%Y-%m-%d")
         
-        # ⚠️ CRÉATION DE LA CLÉ DE SESSION UNIQUE POUR AUJOURD'HUI
-        # Cette clé sert à mémoriser LOCALEMENT que l'utilisateur a fini
+        # SÉCURITÉ DE SESSION
         session_done_key = f"done_{today}_{c_user}"
-        
         is_done_today = False
         
-        # 1. Vérification dans la session (Mémoire immédiate)
         if st.session_state.get(session_done_key, False):
             is_done_today = True
-            
-        # 2. Vérification dans le Sheet (Mémoire long terme)
         elif not df.empty:
             check = df[
                 (df['الاسم'] == c_user) & 
@@ -240,7 +240,6 @@ else:
             ]
             if not check.empty:
                 is_done_today = True
-                # On met à jour la session aussi
                 st.session_state[session_done_key] = True
 
         if is_done_today:
@@ -295,24 +294,20 @@ else:
                 sub = st.form_submit_button("✅ حفظ")
             
             if sub:
-                # ⚠️ 3. ULTIME VERIFICATION AVANT ECRITURE
                 already_in_sheet = False
                 if not df.empty:
                     if not df[(df['الاسم']==c_user)&(df['الرمز_الشخصي']==c_pin)&(df['التاريخ'].astype(str)==today)].empty:
                         already_in_sheet = True
                 
-                # Si déjà en session OU déjà dans Sheet -> BLOQUAGE
                 if st.session_state.get(session_done_key, False) or already_in_sheet:
                     st.error("⛔ تم التسجيل بالفعل!")
-                    st.session_state[session_done_key] = True # On force le lock
+                    st.session_state[session_done_key] = True 
                     time.sleep(2)
                     st.rerun()
                 else:
                     final = [today, c_user, c_pin, c_grp] + [row.get(h, "لا") for h in EXPECTED_HEADERS[4:]]
                     try:
                         sheet_data.append_row(final)
-                        
-                        # 🔒 VERROUILLAGE IMMÉDIAT EN MÉMOIRE
                         st.session_state[session_done_key] = True
                         
                         row['المجموعة'] = c_grp
@@ -333,6 +328,9 @@ else:
                         st.rerun()
                     except Exception as e: st.error(f"Erreur: {e}")
 
+    # ------------------
+    # TAB 2 : CLASSEMENT
+    # ------------------
     with t2:
         if not grp_df.empty:
             bd = grp_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False)
@@ -341,13 +339,45 @@ else:
             st.dataframe(bd[['#', 'الرمز_الشخصي', 'المستوى', 'Score']], use_container_width=True, hide_index=True)
         else: st.info("لا بيانات")
 
+    # ------------------
+    # TAB 3 : HISTORIQUE DÉTAILLÉ
+    # ------------------
     with t3:
+        st.markdown("### 📈 تطور مستواي")
         if not df.empty:
+            # 1. Filtrer et Trier par date
             me = df[(df['الاسم']==c_user)&(df['الرمز_الشخصي']==c_pin)].sort_values('DateObj')
+            
             if not me.empty:
-                st.line_chart(me.set_index('DateObj')['Score'])
-                cols = ['التاريخ', 'Score']
-                if c_grp in ["مجموعة الهدى", "مجموعة السائرين"]: 
-                    cols = ['التاريخ', 'الفجر_حالة', 'القرآن', 'Score']
-                st.dataframe(me[cols], use_container_width=True)
-            else: st.info("لا سجل")
+                # 2. Calculer le cumul (CumSum)
+                me['Score_Cumul'] = me['Score'].cumsum()
+                
+                # 3. Graphique de progression (Courbe montante)
+                st.markdown("#### 📊 منحنى التقدم (التراكمي)")
+                st.area_chart(me.set_index('DateObj')['Score_Cumul'], color="#009688")
+                
+                # 4. Tableau Détaillé
+                st.markdown("#### 📅 السجل اليومي")
+                
+                # Choix des colonnes
+                base_cols = ['التاريخ', 'Score', 'Score_Cumul']
+                
+                if c_grp in ["مجموعة الهدى", "مجموعة السائرين"]:
+                    specific_cols = ['الفجر_حالة', 'الظهر_حالة', 'العصر_حالة', 'المغرب_حالة', 'العشاء_حالة', 'القرآن', 'قيام', 'الصيام']
+                else:
+                    # Pour les autres groupes, on affiche les principales colonnes
+                    specific_cols = ['الفجر_حالة', 'القرآن'] 
+
+                # Renommer pour l'affichage arabe propre
+                display_cols = base_cols + [c for c in specific_cols if c in me.columns]
+                
+                # On trie pour afficher le jour le plus récent en haut dans le tableau
+                me_display = me.sort_values('DateObj', ascending=False)
+                
+                st.dataframe(
+                    me_display[display_cols].rename(columns={'Score': 'نقاط اليوم', 'Score_Cumul': 'المجموع التراكمي'}), 
+                    use_container_width=True, 
+                    hide_index=True
+                )
+            else: st.info("لا يوجد سجل سابق.")
+        else: st.info("لا يوجد سجل سابق.")
