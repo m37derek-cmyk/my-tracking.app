@@ -81,14 +81,21 @@ st.markdown("""
     }
     
     .streak-box {
-        background-color: #fff3e0;
-        border: 1px solid #ffe0b2;
-        color: #e65100;
+        background-color: #e3f2fd;
+        border: 1px solid #bbdefb;
+        color: #1565c0;
         padding: 10px;
         border-radius: 10px;
         text-align: center;
         margin-bottom: 15px;
         font-weight: bold;
+    }
+    
+    /* Style pour le tableau récapitulatif */
+    .recap-table {
+        margin: auto;
+        border-collapse: collapse;
+        width: 100%;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -195,25 +202,18 @@ def calculate_score(row):
     
     # === LOGIQUE POUR LES GROUPES SIMPLIFIÉS (Huda + Saerin) ===
     if group in ["مجموعة الهدى", "مجموعة السائرين"]:
-        # Fajr (Haute importance)
         fajr = safe_str(row.get('الفجر_حالة'))
         if fajr == 'جماعة (مسجد)': score += 50
         elif fajr == 'في الوقت (بيت)': score += 40
         
-        # Autres Prières
         prayers_map = {'الظهر_حالة', 'العصر_حالة', 'المغرب_حالة', 'العشاء_حالة'}
         for col in prayers_map:
             val = safe_str(row.get(col))
             if val == 'جماعة (مسجد)': score += 20
             elif val == 'في الوقت (بيت)': score += 15
             
-        # Quran
         if safe_str(row.get('القرآن')) != '0': score += 30
-        
-        # Qiyam (3 rak'ats)
         if "3" in safe_str(row.get('قيام')): score += 60 
-        
-        # Fasting
         if safe_str(row.get('الصيام')) == 'نعم': score += 100
         
         return score
@@ -253,11 +253,8 @@ def calculate_score(row):
         
         return min(score, 250)
 
-# ⚠️ NOUVEAU SYSTÈME DE NIVEAUX (300 points)
 def get_level_and_rank(total_points):
-    # Changement ici : division par 300 au lieu de 500
     level = 1 + (int(total_points) // 300)
-    
     if level < 5: title = "مبتدئ (🌱)"
     elif level < 10: title = "مجتهد (💪)"
     elif level < 20: title = "سابق (🚀)"
@@ -331,6 +328,7 @@ if not full_df.empty:
             my_level, _ = get_level_and_rank(my_total_xp)
             my_rank = my_stats.iloc[0]['الترتيب']
             
+            # Streak calculation
             my_history = group_df[(group_df['الاسم'] == current_user) & (group_df['الرمز_الشخصي'].astype(str) == str(current_pin))].sort_values('DateObj', ascending=False)
             if not my_history.empty:
                 last_date = my_history.iloc[0]['DateObj']
@@ -366,7 +364,6 @@ if current_group != "الإدارة":
     with kpi2: st.markdown(f"""<div class="metric-card"><h3>🛡️ المستوى</h3><h1>{my_level}</h1></div>""", unsafe_allow_html=True)
     with kpi3: st.markdown(f"""<div class="metric-card"><h3>✨ النقاط</h3><h1>{my_total_xp}</h1></div>""", unsafe_allow_html=True)
 
-    # ⚠️ Calcul progression sur 300 points
     points_next = (my_level * 300) - my_total_xp
     prog = max(0.0, min(1.0, 1 - (points_next / 300)))
     st.markdown(f"<br>", unsafe_allow_html=True)
@@ -387,9 +384,7 @@ if current_group == "الإدارة":
             gen_board = display_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False)
             gen_board.insert(0, 'الترتيب', range(1, 1 + len(gen_board)))
             
-            # Affichage correct du niveau avec la nouvelle formule
             gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
-            
             st.dataframe(gen_board, use_container_width=True, hide_index=True)
         else: st.info("لا توجد بيانات.")
     else: st.info("Database vide.")
@@ -401,6 +396,7 @@ else:
         st.markdown("### 🤲 تسجيل إنجاز اليوم")
         day_date = datetime.now().strftime("%Y-%m-%d")
         
+        # ⚠️ VERIFICATION DOUBLE ENTREE
         is_already_submitted = False
         if not full_df.empty:
             check_exists = full_df[
@@ -549,9 +545,28 @@ else:
                         with st.spinner("جاري الحفظ..."):
                             sheet_data.append_row(final_row)
                             st.balloons()
-                            st.success("✅ تم الحفظ بنجاح!")
-                            time.sleep(2)
-                            st.rerun()
+                            st.success("✅ تم الحفظ بنجاح! إليك ملخص ما سجلته:")
+                            
+                            # --- AFFICHAGE RÉCAPITULATIF (TICKET) ---
+                            summary_data = []
+                            # On choisit les colonnes importantes à afficher
+                            key_cols = ['الفجر_حالة', 'الظهر_حالة', 'العصر_حالة', 'المغرب_حالة', 'العشاء_حالة', 'القرآن', 'قيام', 'الصيام']
+                            
+                            for k, v in data_row.items():
+                                # On nettoie un peu l'affichage
+                                if k in key_cols and v not in ['لا', '0', '']:
+                                    clean_k = k.replace("_حالة", "")
+                                    summary_data.append({"العمل": clean_k, "الإنجاز": v})
+                            
+                            if summary_data:
+                                st.table(pd.DataFrame(summary_data))
+                            else:
+                                st.info("لم يتم تسجيل أي عمل خاص لهذا اليوم.")
+
+                            # Pas de rerun automatique pour laisser le temps de lire
+                            if st.button("🔄 تحديث الصفحة (Fermer)"):
+                                st.rerun()
+                                
                     except Exception as e:
                         st.error(f"خطأ تقني: {e}")
 
