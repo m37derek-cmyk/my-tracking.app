@@ -69,15 +69,17 @@ st.markdown("""
         margin-top: 20px;
         animation: fadeIn 1s;
     }
-    .score-text {
-        color: #00796b;
-        font-size: 1.5em;
+    
+    .already-done-box {
+        background-color: #ffebee;
+        border: 2px solid #ef5350;
+        color: #c62828;
+        padding: 30px;
+        border-radius: 15px;
+        text-align: center;
+        font-size: 1.2em;
         font-weight: bold;
-    }
-    .next-level-text {
-        color: #d84315;
-        font-weight: bold;
-        margin-top: 10px;
+        margin-top: 20px;
     }
     
     @keyframes fadeIn {
@@ -239,7 +241,6 @@ def calculate_score(row):
         return min(score, 250)
 
 def get_level_and_rank(total_points):
-    # Palier de 300 points
     level = 1 + (int(total_points) // 300)
     return level
 
@@ -303,6 +304,7 @@ if not full_df.empty:
         group_df = full_df[full_df['المجموعة'] == current_group].copy()
 
     if not group_df.empty:
+        # Classement
         temp_leaderboard = group_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
         temp_leaderboard.insert(0, 'الترتيب', temp_leaderboard.index + 1)
         
@@ -361,6 +363,7 @@ else:
         st.markdown("### 🤲 تسجيل إنجاز اليوم")
         day_date = datetime.now().strftime("%Y-%m-%d")
         
+        # ⚠️ VÉRIFICATION INITIALE (DÉJÀ FAIT ?)
         is_already_submitted = False
         if not full_df.empty:
             check_exists = full_df[
@@ -373,9 +376,9 @@ else:
 
         if is_already_submitted:
             st.markdown(f"""
-            <div class="success-box">
-                <h2>✅ تم التسجيل بنجاح لهذا اليوم</h2>
-                <p>تقبل الله طاعتكم. لا يمكنك التسجيل مرتين في نفس اليوم.</p>
+            <div class="already-done-box">
+                ✅ تم تسجيل اليوم ({day_date}) بالفعل.<br>
+                لا يمكن الإرسال مرتين.
             </div>
             """, unsafe_allow_html=True)
         
@@ -386,7 +389,7 @@ else:
                 data_row = {col: "لا" for col in EXPECTED_HEADERS}
                 data_row["القرآن"] = "0"
                 data_row["قيام"] = "0"
-                data_row["المجموعة"] = current_group # Important pour le calcul du score
+                data_row["المجموعة"] = current_group 
                 
                 # --- AL HUDA & SAERIN ---
                 if current_group in ["مجموعة الهدى", "مجموعة السائرين"]:
@@ -528,8 +531,9 @@ else:
                             </div>
                             """, unsafe_allow_html=True)
 
-                            if st.button("🔄 تحديث الصفحة (إغلاق)"):
-                                st.rerun()
+                            # Redémarrage automatique après 4 secondes pour verrouiller
+                            time.sleep(4)
+                            st.rerun()
                                 
                     except Exception as e:
                         st.error(f"خطأ تقني: {e}")
@@ -554,7 +558,7 @@ else:
             display_df = full_df[full_df['المجموعة'] == current_group].copy()
             if not display_df.empty:
                 gen_board = display_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
-                gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
+                gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x))
                 gen_board.insert(0, 'الترتيب', gen_board.index + 1)
                 
                 st.dataframe(
