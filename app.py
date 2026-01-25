@@ -37,7 +37,6 @@ st.markdown("""
         text-align: center;
         transition: transform 0.3s ease;
     }
-    .metric-card:hover { transform: translateY(-5px); }
     .metric-card h3 { margin: 0; font-size: 0.9rem; color: #666; }
     .metric-card h1 { margin: 0; font-size: 2rem; color: #009688; font-weight: bold; }
 
@@ -61,34 +60,29 @@ st.markdown("""
         padding-bottom: 5px;
     }
     
-    .friday-box {
-        background: linear-gradient(to left, #e0f7fa, #ffffff);
-        border: 1px solid #009688;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 20px;
-    }
-    
-    .success-box {
-        background-color: #e8f5e9;
-        border: 1px solid #c8e6c9;
-        color: #2e7d32;
+    .result-box {
+        background-color: #e0f2f1;
+        border: 2px solid #009688;
+        border-radius: 15px;
         padding: 20px;
-        border-radius: 10px;
         text-align: center;
         margin-top: 20px;
+        animation: fadeIn 1s;
+    }
+    .score-text {
+        color: #00796b;
+        font-size: 1.5em;
         font-weight: bold;
     }
-    
-    .streak-box {
-        background-color: #e3f2fd;
-        border: 1px solid #bbdefb;
-        color: #1565c0;
-        padding: 10px;
-        border-radius: 10px;
-        text-align: center;
-        margin-bottom: 15px;
+    .next-level-text {
+        color: #d84315;
         font-weight: bold;
+        margin-top: 10px;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -104,7 +98,6 @@ MOTIVATIONAL_QUOTES = [
     "أقرب ما يكون العبد من ربه وهو ساجد"
 ]
 
-# 🔑 CONFIGURATION DES GROUPES
 GROUPS_CONFIG = {
     "مجموعة الفردوس": "Firdaws@786!Top",
     "مجموعة الريان": "Rayyan#2025$Win",
@@ -115,7 +108,6 @@ GROUPS_CONFIG = {
     "الإدارة": "Admin@MasterKey99!"
 }
 
-# Liste complète des colonnes
 EXPECTED_HEADERS = [
     "التاريخ", "الاسم", "الرمز_الشخصي", "المجموعة",
     "الفجر_حالة", "الفجر_سنة", "الضحى", 
@@ -161,7 +153,7 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# 4. LOGIQUE MÉTIER
+# 4. LOGIQUE MÉTIER & CALCULS
 # ==========================================
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -182,18 +174,18 @@ def check_login():
         st.session_state["user_name"] = input_user
         st.session_state["user_pin"] = input_pin
         st.session_state["user_group"] = found_group
-        st.toast(f"مرحباً بك في {found_group}", icon="👋")
     else:
         st.error("⛔ البيانات غير صحيحة")
 
 def safe_str(val):
     return str(val).strip() if val else ""
 
+# 🧮 CALCUL DES POINTS
 def calculate_score(row):
     score = 0
     group = safe_str(row.get('المجموعة'))
     
-    # LOGIQUE SIMPLIFIÉE
+    # GROUPE AL HUDA & SAERIN (Points Boostés)
     if group in ["مجموعة الهدى", "مجموعة السائرين"]:
         fajr = safe_str(row.get('الفجر_حالة'))
         if fajr == 'جماعة (مسجد)': score += 50
@@ -211,7 +203,7 @@ def calculate_score(row):
         
         return score
 
-    # LOGIQUE STANDARD
+    # GROUPE STANDARD
     else:
         prayers_map = {'الفجر': 'الفجر_حالة', 'الظهر': 'الظهر_حالة', 'العصر': 'العصر_حالة', 'المغرب': 'المغرب_حالة', 'العشاء': 'العشاء_حالة'}
         for p_name, col_name in prayers_map.items():
@@ -247,12 +239,9 @@ def calculate_score(row):
         return min(score, 250)
 
 def get_level_and_rank(total_points):
+    # Palier de 300 points
     level = 1 + (int(total_points) // 300)
-    if level < 5: title = "مبتدئ (🌱)"
-    elif level < 10: title = "مجتهد (💪)"
-    elif level < 20: title = "سابق (🚀)"
-    else: title = "رباني (👑)"
-    return level, title
+    return level
 
 # ==========================================
 # 5. PAGE DE CONNEXION
@@ -276,7 +265,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==========================================
-# 6. CHARGEMENT & CALCULS (NETTOYAGE ET SÉCURITÉ)
+# 6. CHARGEMENT DONNÉES
 # ==========================================
 current_user = st.session_state["user_name"]
 current_pin = st.session_state["user_pin"]
@@ -286,7 +275,6 @@ my_total_xp = 0
 my_level = 1
 my_rank = "-"
 group_df = pd.DataFrame() 
-streak_count = 0 
 
 try:
     data = sheet_data.get_all_records()
@@ -300,51 +288,29 @@ if not full_df.empty:
         try: sheet_data.update('A1', [EXPECTED_HEADERS])
         except: pass
 
-    # 1. Assurer que toutes les colonnes existent
     for col in EXPECTED_HEADERS:
         if col not in full_df.columns: full_df[col] = ""
 
-    # 2. NETTOYAGE DES DONNÉES (Fix pour le classement vide)
-    # On enlève les espaces vides dans les noms de groupe
+    # Nettoyage et Calculs
     full_df['المجموعة'] = full_df['المجموعة'].astype(str).str.strip()
-    
-    # 3. Calculs
     full_df['Score'] = full_df.apply(calculate_score, axis=1)
-    
-    # 4. Conversion forcée du Score en nombre (Fix bug somme)
     full_df['Score'] = pd.to_numeric(full_df['Score'], errors='coerce').fillna(0)
-    
     full_df['DateObj'] = pd.to_datetime(full_df['التاريخ'], errors='coerce')
     
-    # 5. Filtrage
     if current_group == "الإدارة":
         group_df = full_df.copy()
     else:
         group_df = full_df[full_df['المجموعة'] == current_group].copy()
 
     if not group_df.empty:
-        # Classement
         temp_leaderboard = group_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
         temp_leaderboard.insert(0, 'الترتيب', temp_leaderboard.index + 1)
         
         my_stats = temp_leaderboard[(temp_leaderboard['الاسم'] == current_user) & (temp_leaderboard['الرمز_الشخصي'].astype(str) == str(current_pin))]
         if not my_stats.empty:
             my_total_xp = my_stats.iloc[0]['Score']
-            my_level, _ = get_level_and_rank(my_total_xp)
+            my_level = get_level_and_rank(my_total_xp)
             my_rank = my_stats.iloc[0]['الترتيب']
-            
-            # Streak
-            my_history = group_df[(group_df['الاسم'] == current_user) & (group_df['الرمز_الشخصي'].astype(str) == str(current_pin))].sort_values('DateObj', ascending=False)
-            if not my_history.empty:
-                last_date = my_history.iloc[0]['DateObj']
-                if (datetime.now() - last_date).days <= 1:
-                    streak_count = 1
-                    for i in range(len(my_history) - 1):
-                        diff = (my_history.iloc[i]['DateObj'] - my_history.iloc[i+1]['DateObj']).days
-                        if diff == 1:
-                            streak_count += 1
-                        else:
-                            break
 
 # ==========================================
 # 7. INTERFACE PRINCIPALE
@@ -358,26 +324,23 @@ with col_h2:
         st.session_state["authenticated"] = False
         st.rerun()
 
-if streak_count > 1:
-    st.markdown(f'<div class="streak-box">🔥 ما شاء الله! أنت مستمر منذ {streak_count} أيام متتالية</div>', unsafe_allow_html=True)
-else:
-    st.info(random.choice(MOTIVATIONAL_QUOTES))
+# 📊 Calcul de progression
+points_next = (my_level * 300) - my_total_xp
+prog = max(0.0, min(1.0, 1 - (points_next / 300)))
 
 if current_group != "الإدارة":
     kpi1, kpi2, kpi3 = st.columns(3)
     with kpi1: st.markdown(f"""<div class="metric-card"><h3>🥇 الترتيب</h3><h1>#{my_rank}</h1></div>""", unsafe_allow_html=True)
     with kpi2: st.markdown(f"""<div class="metric-card"><h3>🛡️ المستوى</h3><h1>{my_level}</h1></div>""", unsafe_allow_html=True)
-    with kpi3: st.markdown(f"""<div class="metric-card"><h3>✨ النقاط</h3><h1>{my_total_xp}</h1></div>""", unsafe_allow_html=True)
-
-    points_next = (my_level * 300) - my_total_xp
-    prog = max(0.0, min(1.0, 1 - (points_next / 300)))
+    with kpi3: st.markdown(f"""<div class="metric-card"><h3>✨ النقاط الكلية</h3><h1>{my_total_xp}</h1></div>""", unsafe_allow_html=True)
+    
     st.markdown(f"<br>", unsafe_allow_html=True)
-    st.progress(prog, text=f"🚀 باقي {points_next} نقطة للمستوى القادم")
+    st.progress(prog, text=f"🚀 باقي {points_next} نقطة للوصول للمستوى {my_level + 1}")
 
 st.markdown("---")
 
 # ==========================================
-# 8. TABS
+# 8. TABS (ENREGISTREMENT & RÉSULTATS)
 # ==========================================
 if current_group == "الإدارة":
     st.markdown("## 👮‍♂️ لوحة تحكم الإدارة")
@@ -388,11 +351,9 @@ if current_group == "الإدارة":
         if not display_df.empty:
             gen_board = display_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False)
             gen_board.insert(0, 'الترتيب', range(1, 1 + len(gen_board)))
-            gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
+            gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x))
             st.dataframe(gen_board, use_container_width=True, hide_index=True)
         else: st.info("لا توجد بيانات.")
-    else: st.info("Database vide.")
-
 else:
     tab1, tab2, tab3 = st.tabs(["📝 تسجيل اليوم", "🏆 لوحة الصدارة", "📈 تطور مستواي"])
 
@@ -400,7 +361,6 @@ else:
         st.markdown("### 🤲 تسجيل إنجاز اليوم")
         day_date = datetime.now().strftime("%Y-%m-%d")
         
-        # ⚠️ VÉRIFICATION INITIALE (DÉJÀ FAIT ?)
         is_already_submitted = False
         if not full_df.empty:
             check_exists = full_df[
@@ -415,26 +375,22 @@ else:
             st.markdown(f"""
             <div class="success-box">
                 <h2>✅ تم التسجيل بنجاح لهذا اليوم</h2>
-                <p>لقد قمت بتسجيل بيانات يوم {day_date} مسبقاً. تقبل الله طاعتكم.</p>
+                <p>تقبل الله طاعتكم. لا يمكنك التسجيل مرتين في نفس اليوم.</p>
             </div>
             """, unsafe_allow_html=True)
         
         else:
             if datetime.today().weekday() == 4: st.success("🕌 **يوم الجمعة!** لا تنسَ سنن الجمعة.")
 
-            today_idx = datetime.now().weekday()
-            if today_idx in [0, 3]: 
-                st.info("📅 اليوم هو الإثنين أو الخميس، فرصة رائعة للصيام!")
-
             with st.form("entry_form"):
                 data_row = {col: "لا" for col in EXPECTED_HEADERS}
                 data_row["القرآن"] = "0"
                 data_row["قيام"] = "0"
+                data_row["المجموعة"] = current_group # Important pour le calcul du score
                 
-                # --- SIMPLIFIÉ ---
+                # --- AL HUDA & SAERIN ---
                 if current_group in ["مجموعة الهدى", "مجموعة السائرين"]:
                     st.markdown(f"**نموذج {current_group}**")
-                    
                     st.markdown("<div class='task-header'>🕌 صلاة الفجر</div>", unsafe_allow_html=True)
                     data_row["الفجر_حالة"] = st.selectbox("الفجر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], label_visibility="collapsed")
                     
@@ -459,25 +415,15 @@ else:
                     with cc1:
                         st.markdown("<div class='task-header'>📖 الورد اليومي</div>", unsafe_allow_html=True)
                         data_row["القرآن"] = st.selectbox("الكمية", ["0", "ثمن", "ربع", "نصف", "حزب", "حزبين"], label_visibility="collapsed")
-                    
                     with cc2:
                         st.markdown("<div class='task-header'>🌙 قيام الليل</div>", unsafe_allow_html=True)
                         if st.checkbox("أديت 3 ركعات (الشفع والوتر)"): data_row["قيام"] = "3 ركعات"
-                    
                     with cc3:
                         st.markdown("<div class='task-header'>🍽️ صيام التطوع</div>", unsafe_allow_html=True)
-                        st.caption(f"هل صمت اليوم ({day_date})؟")
                         if st.checkbox("نعم، صمت هذا اليوم"): data_row["الصيام"] = "نعم"
 
                 # --- STANDARD ---
                 else:
-                    if datetime.today().weekday() == 4:
-                        st.markdown('<div class="friday-box">✨ سنن الجمعة</div>', unsafe_allow_html=True)
-                        c_f1, c_f2, c_f3 = st.columns(3)
-                        if c_f1.checkbox("صلاة الجمعة"): data_row["جمعة_صلاة_جمعة"] = "نعم"
-                        if c_f2.checkbox("سورة الكهف"): data_row["جمعة_كهف"] = "نعم"
-                        if c_f3.checkbox("الصلاة على النبي"): data_row["جمعة_صلاة_نبي"] = "نعم"
-
                     with st.expander("🕌 الصلوات المفروضة", expanded=True):
                         c1, c2, c3 = st.columns(3)
                         with c1:
@@ -528,11 +474,11 @@ else:
                         if b5.checkbox("تعهد"): data_row["التعهد"] = "نعم"
 
                 st.markdown("<br>", unsafe_allow_html=True)
-                submitted = st.form_submit_button("✅ حفظ البيانات", use_container_width=True)
+                submitted = st.form_submit_button("✅ حفظ وتسجيل النقاط", use_container_width=True)
 
+            # TRAITEMENT APRÈS SOUMISSION (HORS FORMULAIRE)
             if submitted:
-                # ⚠️ DOUBLE SÉCURITÉ : On revérifie au moment du clic si c'est déjà fait
-                # (Protection contre le double clic rapide)
+                # Double vérification pour éviter le double clic
                 already_done = False
                 if not full_df.empty:
                     check_exists_now = full_df[
@@ -552,64 +498,62 @@ else:
                     data_row["الرمز_الشخصي"] = current_pin
                     data_row["المجموعة"] = current_group
                     
+                    # Préparation de la liste ordonnée
                     for header in EXPECTED_HEADERS:
                         final_row.append(data_row.get(header, "لا"))
-                        
+                    
                     try:
-                        with st.spinner("جاري الحفظ..."):
+                        with st.spinner("جاري حساب النقاط والحفظ..."):
                             sheet_data.append_row(final_row)
+                            
+                            # 🧮 CALCUL IMMÉDIAT DU SCORE DU JOUR
+                            daily_score = calculate_score(data_row)
+                            
+                            # 🧮 CALCUL PROJECTION NIVEAU SUIVANT
+                            new_total_xp = my_total_xp + daily_score
+                            new_level = 1 + (int(new_total_xp) // 300)
+                            points_needed_now = (new_level * 300) - new_total_xp
+                            
                             st.balloons()
-                            st.success("✅ تم الحفظ بنجاح!")
                             
-                            # Récapitulatif immédiat
-                            summary_data = []
-                            key_cols = ['الفجر_حالة', 'الظهر_حالة', 'العصر_حالة', 'المغرب_حالة', 'العشاء_حالة', 'القرآن', 'قيام', 'الصيام']
-                            for k, v in data_row.items():
-                                if k in key_cols and v not in ['لا', '0', '']:
-                                    clean_k = k.replace("_حالة", "")
-                                    summary_data.append({"العمل": clean_k, "الإنجاز": v})
-                            if summary_data:
-                                st.table(pd.DataFrame(summary_data))
-                            
+                            # ✨ AFFICHAGE DU RÉSULTAT (RESULT BOX)
+                            st.markdown(f"""
+                            <div class="result-box">
+                                <h3>🎉 تم الحفظ بنجاح!</h3>
+                                <p>حصدت اليوم:</p>
+                                <div class="score-text">+{daily_score} نقطة</div>
+                                <hr style="border-top: 1px dashed #009688;">
+                                <p>مجموع نقاطك الجديد: <b>{new_total_xp}</b></p>
+                                <div class="next-level-text">🚀 باقي {points_needed_now} نقطة للمستوى {new_level + 1}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
                             if st.button("🔄 تحديث الصفحة (إغلاق)"):
                                 st.rerun()
                                 
                     except Exception as e:
                         st.error(f"خطأ تقني: {e}")
 
-        # === 📅 HISTORIQUE COMPLET EN BAS DE L'ONGLET 1 ===
+        # === 📅 HISTORIQUE RAPIDE ===
         st.markdown("---")
-        st.markdown("### 📅 أرشيف يومياتك (ملخص)")
-        
+        st.markdown("### 📅 سجلي السابق")
         if not full_df.empty:
             my_history_full = full_df[
                 (full_df['الاسم'] == current_user) & 
                 (full_df['الرمز_الشخصي'].astype(str) == str(current_pin))
             ].copy()
-            
             if not my_history_full.empty:
                 my_history_full = my_history_full.sort_values('DateObj', ascending=False)
-                
-                # Colonnes à afficher selon le groupe
-                if current_group in ["مجموعة الهدى", "مجموعة السائرين"]:
-                    cols_to_show = ['التاريخ', 'الفجر_حالة', 'القرآن', 'قيام', 'الصيام', 'Score']
-                else:
-                    cols_to_show = ['التاريخ', 'الفجر_حالة', 'القرآن', 'قيام', 'Score']
-                
-                # Filtrer colonnes existantes
+                cols_to_show = ['التاريخ', 'Score'] # Simple pour la vue mobile
                 valid_cols = [c for c in cols_to_show if c in my_history_full.columns]
                 st.dataframe(my_history_full[valid_cols], use_container_width=True, hide_index=True)
-            else:
-                st.info("لا توجد سجلات سابقة.")
 
     with tab2:
         st.markdown("### 🏆 لوحة الصدارة (مجموعتي)")
         if not full_df.empty:
             display_df = full_df[full_df['المجموعة'] == current_group].copy()
             if not display_df.empty:
-                # On somme les scores (Total cumulé)
                 gen_board = display_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False).reset_index(drop=True)
-                
                 gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
                 gen_board.insert(0, 'الترتيب', gen_board.index + 1)
                 
@@ -617,7 +561,7 @@ else:
                     gen_board[['الترتيب', 'الرمز_الشخصي', 'المستوى', 'Score']].rename(columns={'الرمز_الشخصي': 'الرمز'}), 
                     use_container_width=True, hide_index=True
                 )
-            else: st.info("لا توجد بيانات.")
+            else: st.info("لا توجد بيانات لهذه المجموعة.")
         else: st.info("قاعدة البيانات فارغة.")
 
     with tab3:
