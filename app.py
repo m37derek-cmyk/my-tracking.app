@@ -22,7 +22,7 @@ st.markdown("""
     .stButton>button { background: linear-gradient(135deg, #009688 0%, #00796b 100%); color: white !important; border-radius: 12px; width: 100%; font-weight:bold; }
     .task-header { color: #00796b; font-weight: bold; border-bottom: 2px solid #e0f2f1; padding-bottom: 5px; }
     
-    /* BOITE VERROUILLÉE (MESSAGE ROUGE) */
+    /* BOITE ROUGE DE BLOCAGE */
     .locked-box { 
         background-color: #ffebee; 
         border: 2px solid #ef5350; 
@@ -30,19 +30,34 @@ st.markdown("""
         padding: 30px; 
         border-radius: 15px; 
         text-align: center; 
-        font-size: 1.3em; 
+        font-size: 1.4em; 
         font-weight: bold; 
         margin: 20px 0; 
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        animation: shake 0.5s;
     }
     
     .result-box { background-color: #e0f2f1; border: 2px solid #009688; border-radius: 15px; padding: 20px; text-align: center; animation: fadeIn 1s; }
+    
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes shake {
+        0% { transform: translate(1px, 1px) rotate(0deg); }
+        10% { transform: translate(-1px, -2px) rotate(-1deg); }
+        20% { transform: translate(-3px, 0px) rotate(1deg); }
+        30% { transform: translate(3px, 2px) rotate(0deg); }
+        40% { transform: translate(1px, -1px) rotate(1deg); }
+        50% { transform: translate(-1px, 2px) rotate(-1deg); }
+        60% { transform: translate(-3px, 1px) rotate(0deg); }
+        70% { transform: translate(3px, 1px) rotate(-1deg); }
+        80% { transform: translate(-1px, -1px) rotate(1deg); }
+        90% { transform: translate(1px, 2px) rotate(0deg); }
+        100% { transform: translate(1px, -2px) rotate(-1deg); }
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. CONFIGURATION
+# 2. DONNÉES
 # ==========================================
 GROUPS_CONFIG = {
     "مجموعة الفردوس": "Firdaws@786!Top",
@@ -87,12 +102,9 @@ try:
 except: st.error("Erreur sheet"); st.stop()
 
 # ==========================================
-# 4. LOGIQUE & CALCULS
+# 4. LOGIQUE
 # ==========================================
 if "authenticated" not in st.session_state: st.session_state["authenticated"] = False
-
-# ⚠️ VARIABLE DE SÉCURITÉ POUR LE DOUBLE CLIC
-if "submit_lock" not in st.session_state: st.session_state["submit_lock"] = False
 
 def check_login():
     u, p, c = str(st.session_state.login_user).strip(), str(st.session_state.login_pin).strip(), str(st.session_state.login_pass).strip()
@@ -136,10 +148,8 @@ def calculate_score(row):
         q = safe_str(row.get('القرآن'))
         if q not in ['0', 'لا', '']: score += 10
         if safe_str(row.get('قيام')) not in ['0', 'لا', '']: score += 10
-        
         for d in ['الصيام', 'قراءة_كتاب', 'أسرة', 'مجلس التدارس', 'التعهد']:
             if safe_str(row.get(d)) == 'نعم': score += 5
-            
         if safe_str(row.get('جمعة_كهف')) == 'نعم': score += 15
         if safe_str(row.get('جمعة_صلاة_نبي')) == 'نعم': score += 15
         if safe_str(row.get('جمعة_صلاة_جمعة')) == 'نعم': score += 20
@@ -172,12 +182,10 @@ try:
     df = pd.DataFrame(data)
 except: df = pd.DataFrame()
 
-# INITIALISATION SÉCURISÉE
 my_xp, my_lvl, my_rank = 0, 1, "-"
 grp_df = pd.DataFrame() 
 
 if not df.empty:
-    # ⚠️ NETTOYAGE FORCE
     df['الاسم'] = df['الاسم'].astype(str).str.strip()
     df['الرمز_الشخصي'] = df['الرمز_الشخصي'].astype(str).str.strip()
     df['المجموعة'] = df['المجموعة'].astype(str).str.strip()
@@ -209,7 +217,6 @@ with c1: st.markdown(f"### 🚩 {c_grp} | {c_user}")
 with c2: 
     if st.button("خروج"):
         st.session_state["authenticated"] = False
-        st.session_state["submit_lock"] = False # Reset lock
         st.rerun()
 
 if c_grp != "الإدارة":
@@ -232,37 +239,42 @@ else:
     
     with t1:
         today = datetime.now().strftime("%Y-%m-%d")
-        is_done_today = False
         
-        # 1. Vérification dans la base de données
+        # ⚠️ VÉRIFICATION STRICTE AU DÉMARRAGE
+        # Est-ce que cette personne a déjà une ligne pour AUJOURD'HUI ?
+        is_done_today = False
         if not df.empty:
             check = df[
                 (df['الاسم'] == c_user) & 
                 (df['الرمز_الشخصي'] == c_pin) & 
                 (df['التاريخ'].astype(str).str.strip() == today)
             ]
-            if not check.empty: is_done_today = True
+            if not check.empty:
+                is_done_today = True
 
-        # 2. Logique d'affichage
+        # 🛑 LOGIQUE DE BLOCAGE
         if is_done_today:
+            # Si oui : ON BLOQUE TOUT. Pas de formulaire. Juste le message.
             st.markdown(f"""
             <div class="locked-box">
                 ⛔ التسجيل مغلق<br>
-                <span style="font-size:0.8em; font-weight:normal;">لقد قمت بتسجيل يوم {today} بالفعل.<br>
-                عد غداً للمتابعة إن شاء الله.</span>
+                <br>
+                لقد قمت بتسجيل نقاط يوم <b>{today}</b> بالفعل.<br>
+                لا يمكن التعديل أو الإضافة مرة أخرى.<br>
+                <br>
+                ✨ نلتقي غداً إن شاء الله ✨
             </div>
             """, unsafe_allow_html=True)
         
-        elif st.session_state["submit_lock"]:
-            # Si le verrouillage de session est actif (pendant l'animation ou double clic)
-            st.info("⏳ جاري الحفظ... يرجى الانتظار")
-            
         else:
-            # Formulaire
+            # Si non : On affiche le formulaire
+            if datetime.today().weekday() == 4: st.success("🕌 **يوم الجمعة!** لا تنسَ سنن الجمعة.")
+
             with st.form("f"):
                 row = {c: "لا" for c in EXPECTED_HEADERS}
                 row["القرآن"] = "0"; row["قيام"] = "0"; row["المجموعة"] = c_grp
                 
+                # Formulaire Dynamique
                 if c_grp in ["مجموعة الهدى", "مجموعة السائرين"]:
                     st.markdown(f"**تسجيل {c_grp}**")
                     st.markdown("🕌 **الفجر**")
@@ -293,50 +305,48 @@ else:
                     with st.expander("📖 أعمال"):
                         row["القرآن"] = st.selectbox("القرآن", ["0", "ثمن", "ربع", "نصف", "حزب"])
 
-                sub = st.form_submit_button("✅ حفظ (اضغط مرة واحدة)")
+                sub = st.form_submit_button("✅ حفظ")
             
             if sub:
-                # 3. Double sécurité au moment du clic
+                # ⚠️ DERNIÈRE VÉRIFICATION (ANTI DOUBLE-CLIC)
                 final_check = False
                 if not df.empty:
+                    # On revérifie la base de données au moment EXACT du clic
+                    # au cas où l'utilisateur aurait deux onglets ouverts
                     if not df[(df['الاسم']==c_user)&(df['الرمز_الشخصي']==c_pin)&(df['التاريخ'].astype(str)==today)].empty:
                         final_check = True
                 
                 if final_check:
-                    st.error("⛔ عذراً، تم تسجيل الدخول بالفعل!")
+                    st.error("⛔ عذراً! تم التسجيل بالفعل. لا يمكن الإرسال مرتين.")
                     time.sleep(2)
                     st.rerun()
                 else:
-                    # VERROUILLAGE SESSION
-                    st.session_state["submit_lock"] = True
-                    
                     final = [today, c_user, c_pin, c_grp] + [row.get(h, "لا") for h in EXPECTED_HEADERS[4:]]
                     try:
-                        sheet_data.append_row(final)
-                        
-                        row['المجموعة'] = c_grp
-                        score_day = calculate_score(row)
-                        new_tot = my_xp + score_day
-                        nxt_lvl = get_level(new_tot)
-                        rem = (nxt_lvl * 300) - new_tot
-                        
-                        st.balloons()
-                        st.markdown(f"""
-                        <div class="result-box">
-                            <h3>🎉 تم الحفظ!</h3>
-                            <h2>+{score_day} نقطة</h2>
-                            <p>المجموع الجديد: <b>{new_tot}</b> | باقي للمستوى القادم: <b>{rem}</b></p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        # DÉVERROUILLAGE ET RECHARGEMENT
-                        time.sleep(3)
-                        st.session_state["submit_lock"] = False
-                        st.rerun()
-                        
-                    except Exception as e: 
-                        st.session_state["submit_lock"] = False
-                        st.error(f"Erreur: {e}")
+                        with st.spinner("جاري الحفظ..."):
+                            sheet_data.append_row(final)
+                            
+                            # Calcul Score pour affichage immédiat
+                            row['المجموعة'] = c_grp
+                            score_day = calculate_score(row)
+                            new_tot = my_xp + score_day
+                            nxt_lvl = get_level(new_tot)
+                            rem = (nxt_lvl * 300) - new_tot
+                            
+                            st.balloons()
+                            st.markdown(f"""
+                            <div class="result-box">
+                                <h3>🎉 تم الحفظ!</h3>
+                                <h2>+{score_day} نقطة</h2>
+                                <p>المجموع الجديد: <b>{new_tot}</b> | باقي للمستوى القادم: <b>{rem}</b></p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            # On force le rechargement pour que la page affiche le blocage
+                            time.sleep(3)
+                            st.rerun()
+                            
+                    except Exception as e: st.error(f"Erreur: {e}")
 
     with t2:
         if not grp_df.empty:
