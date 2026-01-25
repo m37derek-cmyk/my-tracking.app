@@ -78,7 +78,7 @@ except: st.error("Erreur sheet"); st.stop()
 if "authenticated" not in st.session_state: st.session_state["authenticated"] = False
 
 def check_login():
-    u, p, c = st.session_state.login_user.strip(), st.session_state.login_pin.strip(), st.session_state.login_pass.strip()
+    u, p, c = str(st.session_state.login_user).strip(), str(st.session_state.login_pin).strip(), str(st.session_state.login_pass).strip()
     grp = next((g for g, pw in GROUPS_CONFIG.items() if pw == c), None)
     if grp and u and p:
         st.session_state.update({"authenticated": True, "user_name": u, "user_pin": p, "user_group": grp})
@@ -144,7 +144,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==========================================
-# 6. CHARGEMENT
+# 6. CHARGEMENT (CORRECTION NAMEERROR)
 # ==========================================
 c_user = str(st.session_state["user_name"]).strip()
 c_pin = str(st.session_state["user_pin"]).strip()
@@ -155,15 +155,16 @@ try:
     df = pd.DataFrame(data)
 except: df = pd.DataFrame()
 
+# ⚠️ INITIALISATION DES VARIABLES CRITIQUES (Fix NameError)
 my_xp, my_lvl, my_rank = 0, 1, "-"
+grp_df = pd.DataFrame() 
 
 if not df.empty:
-    # ⚠️ NETTOYAGE FORCE POUR LA COMPARAISON
+    # ⚠️ NETTOYAGE FORCE
     df['الاسم'] = df['الاسم'].astype(str).str.strip()
     df['الرمز_الشخصي'] = df['الرمز_الشخصي'].astype(str).str.strip()
     df['المجموعة'] = df['المجموعة'].astype(str).str.strip()
     
-    # Calculs
     for c in EXPECTED_HEADERS: 
         if c not in df.columns: df[c] = ""
     
@@ -171,7 +172,7 @@ if not df.empty:
     df['Score'] = pd.to_numeric(df['Score'], errors='coerce').fillna(0)
     df['DateObj'] = pd.to_datetime(df['التاريخ'], errors='coerce')
 
-    # Classement Groupe
+    # Création du DataFrame de groupe
     grp_df = df if c_grp == "الإدارة" else df[df['المجموعة'] == c_grp].copy()
     
     if not grp_df.empty:
@@ -215,11 +216,9 @@ else:
     
     with t1:
         today = datetime.now().strftime("%Y-%m-%d")
-        
-        # ⚠️ VÉRIFICATION STRICTE DE L'EXISTENCE
         is_done = False
+        
         if not df.empty:
-            # On compare des chaînes de caractères nettoyées
             check = df[
                 (df['الاسم'] == c_user) & 
                 (df['الرمز_الشخصي'] == c_pin) & 
@@ -228,18 +227,12 @@ else:
             if not check.empty: is_done = True
 
         if is_done:
-            st.markdown(f"""
-            <div class="locked-box">
-                ✅ تم تسجيل اليوم ({today}) بنجاح.<br>
-                لا يمكن الإضافة مرة أخرى. تقبل الله طاعتكم.
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="locked-box">✅ تم تسجيل اليوم ({today}) بنجاح.</div>""", unsafe_allow_html=True)
         else:
             with st.form("f"):
                 row = {c: "لا" for c in EXPECTED_HEADERS}
                 row["القرآن"] = "0"; row["قيام"] = "0"; row["المجموعة"] = c_grp
                 
-                # --- AL HUDA / SAERIN ---
                 if c_grp in ["مجموعة الهدى", "مجموعة السائرين"]:
                     st.markdown(f"**تسجيل {c_grp}**")
                     st.markdown("🕌 **الفجر**")
@@ -260,26 +253,20 @@ else:
                     c3.markdown("🍽️ **صيام**"); 
                     if c3.checkbox("صمت اليوم"): row["الصيام"] = "نعم"
 
-                # --- STANDARD ---
                 else:
                     with st.expander("🕌 الصلوات", expanded=True):
                         c1, c2 = st.columns(2)
                         row["الفجر_حالة"] = c1.selectbox("الفجر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"])
                         if c1.checkbox("سنة الفجر"): row["الفجر_سنة"] = "نعم"
-                        # (Ajouter les autres prières ici de la même façon pour raccourcir le code affiché)
-                        # Pour faire court dans la réponse, j'ai mis l'essentiel, mais la logique est la même
                         for p in ["الظهر", "العصر", "المغرب", "العشاء"]:
                             row[f"{p}_حالة"] = st.selectbox(p, ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"])
-                        
                     with st.expander("📖 أعمال"):
-                        if st.checkbox("أذكار الصباح"): row["أذكار_الصباح"] = "نعم"
-                        if st.checkbox("أذكار المساء"): row["أذكار_المساء"] = "نعم"
                         row["القرآن"] = st.selectbox("القرآن", ["0", "ثمن", "ربع", "نصف", "حزب"])
 
                 sub = st.form_submit_button("✅ حفظ")
             
             if sub:
-                # DOUBLE VERIF
+                # DOUBLE CHECK
                 final_check = False
                 if not df.empty:
                     if not df[(df['الاسم']==c_user)&(df['الرمز_الشخصي']==c_pin)&(df['التاريخ'].astype(str)==today)].empty:
@@ -292,7 +279,6 @@ else:
                     try:
                         sheet_data.append_row(final)
                         
-                        # Calcul score instantané
                         row['المجموعة'] = c_grp
                         score_day = calculate_score(row)
                         new_tot = my_xp + score_day
@@ -312,6 +298,7 @@ else:
                     except Exception as e: st.error(f"Erreur: {e}")
 
     with t2:
+        # Ici grp_df est maintenant garanti d'être défini
         if not grp_df.empty:
             bd = grp_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False)
             bd['المستوى'] = bd['Score'].apply(get_level)
@@ -324,5 +311,8 @@ else:
             me = df[(df['الاسم']==c_user)&(df['الرمز_الشخصي']==c_pin)].sort_values('DateObj')
             if not me.empty:
                 st.line_chart(me.set_index('DateObj')['Score'])
-                st.dataframe(me[['التاريخ', 'Score']], use_container_width=True)
+                cols = ['التاريخ', 'Score']
+                if c_grp in ["مجموعة الهدى", "مجموعة السائرين"]: 
+                    cols = ['التاريخ', 'الفجر_حالة', 'القرآن', 'Score']
+                st.dataframe(me[cols], use_container_width=True)
             else: st.info("لا سجل")
