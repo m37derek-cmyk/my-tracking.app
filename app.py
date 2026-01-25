@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 import random
 import time
@@ -104,14 +104,14 @@ MOTIVATIONAL_QUOTES = [
     "أقرب ما يكون العبد من ربه وهو ساجد"
 ]
 
-# 🔑 CONFIGURATION DES GROUPES (Avec le nouveau groupe)
+# 🔑 CONFIGURATION DES GROUPES
 GROUPS_CONFIG = {
     "مجموعة الفردوس": "Firdaws@786!Top",
     "مجموعة الريان": "Rayyan#2025$Win",
     "مجموعة الفجر": "Fajr@Simple22", 
     "مجموعة النور": "Noor@Light55", 
     "مجموعة الهدى": "Huda@Guide77",
-    "مجموعة السائرين": "Saerin@2025",  # ✅ المجموعة الجديدة
+    "مجموعة السائرين": "Saerin@2025",
     "الإدارة": "Admin@MasterKey99!"
 }
 
@@ -151,7 +151,6 @@ def get_client():
         st.stop()
 
 client = get_client()
-# Remplacez par votre URL si nécessaire
 spreadsheet_url = "https://docs.google.com/spreadsheets/d/1XqSb4DmiUEd-mt9WMlVPTow7VdeYUI2O870fsgrZx-0/edit?gid=0#gid=0"
 
 try:
@@ -254,8 +253,11 @@ def calculate_score(row):
         
         return min(score, 250)
 
+# ⚠️ NOUVEAU SYSTÈME DE NIVEAUX (300 points)
 def get_level_and_rank(total_points):
-    level = 1 + (int(total_points) // 500)
+    # Changement ici : division par 300 au lieu de 500
+    level = 1 + (int(total_points) // 300)
+    
     if level < 5: title = "مبتدئ (🌱)"
     elif level < 10: title = "مجتهد (💪)"
     elif level < 20: title = "سابق (🚀)"
@@ -294,7 +296,7 @@ my_total_xp = 0
 my_level = 1
 my_rank = "-"
 group_df = pd.DataFrame() 
-streak_count = 0 # Compteur de jours consécutifs
+streak_count = 0 
 
 try:
     data = sheet_data.get_all_records()
@@ -329,11 +331,9 @@ if not full_df.empty:
             my_level, _ = get_level_and_rank(my_total_xp)
             my_rank = my_stats.iloc[0]['الترتيب']
             
-            # Calcul du Streak (Jours consécutifs)
             my_history = group_df[(group_df['الاسم'] == current_user) & (group_df['الرمز_الشخصي'].astype(str) == str(current_pin))].sort_values('DateObj', ascending=False)
             if not my_history.empty:
                 last_date = my_history.iloc[0]['DateObj']
-                # Si la dernière entrée est aujourd'hui ou hier, on compte
                 if (datetime.now() - last_date).days <= 1:
                     streak_count = 1
                     for i in range(len(my_history) - 1):
@@ -355,7 +355,6 @@ with col_h2:
         st.session_state["authenticated"] = False
         st.rerun()
 
-# 💡 AMÉLIORATION : Affichage du Streak
 if streak_count > 1:
     st.markdown(f'<div class="streak-box">🔥 ما شاء الله! أنت مستمر منذ {streak_count} أيام متتالية</div>', unsafe_allow_html=True)
 else:
@@ -367,8 +366,9 @@ if current_group != "الإدارة":
     with kpi2: st.markdown(f"""<div class="metric-card"><h3>🛡️ المستوى</h3><h1>{my_level}</h1></div>""", unsafe_allow_html=True)
     with kpi3: st.markdown(f"""<div class="metric-card"><h3>✨ النقاط</h3><h1>{my_total_xp}</h1></div>""", unsafe_allow_html=True)
 
-    points_next = (my_level * 500) - my_total_xp
-    prog = max(0.0, min(1.0, 1 - (points_next / 500)))
+    # ⚠️ Calcul progression sur 300 points
+    points_next = (my_level * 300) - my_total_xp
+    prog = max(0.0, min(1.0, 1 - (points_next / 300)))
     st.markdown(f"<br>", unsafe_allow_html=True)
     st.progress(prog, text=f"🚀 باقي {points_next} نقطة للمستوى القادم")
 
@@ -386,6 +386,10 @@ if current_group == "الإدارة":
         if not display_df.empty:
             gen_board = display_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False)
             gen_board.insert(0, 'الترتيب', range(1, 1 + len(gen_board)))
+            
+            # Affichage correct du niveau avec la nouvelle formule
+            gen_board['المستوى'] = gen_board['Score'].apply(lambda x: get_level_and_rank(x)[0])
+            
             st.dataframe(gen_board, use_container_width=True, hide_index=True)
         else: st.info("لا توجد بيانات.")
     else: st.info("Database vide.")
@@ -397,7 +401,6 @@ else:
         st.markdown("### 🤲 تسجيل إنجاز اليوم")
         day_date = datetime.now().strftime("%Y-%m-%d")
         
-        # ⚠️ VERIFICATION DOUBLE ENTREE
         is_already_submitted = False
         if not full_df.empty:
             check_exists = full_df[
@@ -419,9 +422,8 @@ else:
         else:
             if datetime.today().weekday() == 4: st.success("🕌 **يوم الجمعة!** لا تنسَ سنن الجمعة.")
 
-            # 💡 AMÉLIORATION : Rappel Jeûne Lundi/Jeudi
             today_idx = datetime.now().weekday()
-            if today_idx in [0, 3]: # 0=Lundi, 3=Jeudi
+            if today_idx in [0, 3]: 
                 st.info("📅 اليوم هو الإثنين أو الخميس، فرصة رائعة للصيام!")
 
             with st.form("entry_form"):
@@ -464,7 +466,6 @@ else:
                     
                     with cc3:
                         st.markdown("<div class='task-header'>🍽️ صيام التطوع</div>", unsafe_allow_html=True)
-                        # 💡 Amélioration: Afficher la date pour confirmer
                         st.caption(f"هل صمت اليوم ({day_date})؟")
                         if st.checkbox("نعم، صمت هذا اليوم"): data_row["الصيام"] = "نعم"
 
