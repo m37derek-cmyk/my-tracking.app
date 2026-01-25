@@ -19,9 +19,23 @@ st.markdown("""
     .stApp { background-color: #f8f9fa; }
     .metric-card { background-color: white; border-radius: 15px; padding: 20px; border-right: 5px solid #009688; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; }
     .metric-card h1 { color: #009688; font-weight: bold; margin: 0; }
-    .stButton>button { background: linear-gradient(135deg, #009688 0%, #00796b 100%); color: white !important; border-radius: 12px; width: 100%; }
+    .stButton>button { background: linear-gradient(135deg, #009688 0%, #00796b 100%); color: white !important; border-radius: 12px; width: 100%; font-weight:bold; }
     .task-header { color: #00796b; font-weight: bold; border-bottom: 2px solid #e0f2f1; padding-bottom: 5px; }
-    .locked-box { background-color: #ffebee; border: 2px solid #ef5350; color: #c62828; padding: 30px; border-radius: 15px; text-align: center; font-size: 1.2em; font-weight: bold; margin: 20px 0; }
+    
+    /* BOITE VERROUILLÉE (MESSAGE ROUGE) */
+    .locked-box { 
+        background-color: #ffebee; 
+        border: 2px solid #ef5350; 
+        color: #c62828; 
+        padding: 30px; 
+        border-radius: 15px; 
+        text-align: center; 
+        font-size: 1.3em; 
+        font-weight: bold; 
+        margin: 20px 0; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
     .result-box { background-color: #e0f2f1; border: 2px solid #009688; border-radius: 15px; padding: 20px; text-align: center; animation: fadeIn 1s; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
@@ -76,6 +90,9 @@ except: st.error("Erreur sheet"); st.stop()
 # 4. LOGIQUE & CALCULS
 # ==========================================
 if "authenticated" not in st.session_state: st.session_state["authenticated"] = False
+
+# ⚠️ VARIABLE DE SÉCURITÉ POUR LE DOUBLE CLIC
+if "submit_lock" not in st.session_state: st.session_state["submit_lock"] = False
 
 def check_login():
     u, p, c = str(st.session_state.login_user).strip(), str(st.session_state.login_pin).strip(), str(st.session_state.login_pass).strip()
@@ -144,7 +161,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ==========================================
-# 6. CHARGEMENT (CORRECTION NAMEERROR)
+# 6. CHARGEMENT
 # ==========================================
 c_user = str(st.session_state["user_name"]).strip()
 c_pin = str(st.session_state["user_pin"]).strip()
@@ -155,7 +172,7 @@ try:
     df = pd.DataFrame(data)
 except: df = pd.DataFrame()
 
-# ⚠️ INITIALISATION DES VARIABLES CRITIQUES (Fix NameError)
+# INITIALISATION SÉCURISÉE
 my_xp, my_lvl, my_rank = 0, 1, "-"
 grp_df = pd.DataFrame() 
 
@@ -172,7 +189,6 @@ if not df.empty:
     df['Score'] = pd.to_numeric(df['Score'], errors='coerce').fillna(0)
     df['DateObj'] = pd.to_datetime(df['التاريخ'], errors='coerce')
 
-    # Création du DataFrame de groupe
     grp_df = df if c_grp == "الإدارة" else df[df['المجموعة'] == c_grp].copy()
     
     if not grp_df.empty:
@@ -193,9 +209,9 @@ with c1: st.markdown(f"### 🚩 {c_grp} | {c_user}")
 with c2: 
     if st.button("خروج"):
         st.session_state["authenticated"] = False
+        st.session_state["submit_lock"] = False # Reset lock
         st.rerun()
 
-# KPI
 if c_grp != "الإدارة":
     k1, k2, k3 = st.columns(3)
     with k1: st.markdown(f"""<div class="metric-card"><h3>الترتيب</h3><h1>#{my_rank}</h1></div>""", unsafe_allow_html=True)
@@ -216,19 +232,33 @@ else:
     
     with t1:
         today = datetime.now().strftime("%Y-%m-%d")
-        is_done = False
+        is_done_today = False
         
+        # 1. Vérification dans la base de données
         if not df.empty:
             check = df[
                 (df['الاسم'] == c_user) & 
                 (df['الرمز_الشخصي'] == c_pin) & 
                 (df['التاريخ'].astype(str).str.strip() == today)
             ]
-            if not check.empty: is_done = True
+            if not check.empty: is_done_today = True
 
-        if is_done:
-            st.markdown(f"""<div class="locked-box">✅ تم تسجيل اليوم ({today}) بنجاح.</div>""", unsafe_allow_html=True)
+        # 2. Logique d'affichage
+        if is_done_today:
+            st.markdown(f"""
+            <div class="locked-box">
+                ⛔ التسجيل مغلق<br>
+                <span style="font-size:0.8em; font-weight:normal;">لقد قمت بتسجيل يوم {today} بالفعل.<br>
+                عد غداً للمتابعة إن شاء الله.</span>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        elif st.session_state["submit_lock"]:
+            # Si le verrouillage de session est actif (pendant l'animation ou double clic)
+            st.info("⏳ جاري الحفظ... يرجى الانتظار")
+            
         else:
+            # Formulaire
             with st.form("f"):
                 row = {c: "لا" for c in EXPECTED_HEADERS}
                 row["القرآن"] = "0"; row["قيام"] = "0"; row["المجموعة"] = c_grp
@@ -263,18 +293,23 @@ else:
                     with st.expander("📖 أعمال"):
                         row["القرآن"] = st.selectbox("القرآن", ["0", "ثمن", "ربع", "نصف", "حزب"])
 
-                sub = st.form_submit_button("✅ حفظ")
+                sub = st.form_submit_button("✅ حفظ (اضغط مرة واحدة)")
             
             if sub:
-                # DOUBLE CHECK
+                # 3. Double sécurité au moment du clic
                 final_check = False
                 if not df.empty:
                     if not df[(df['الاسم']==c_user)&(df['الرمز_الشخصي']==c_pin)&(df['التاريخ'].astype(str)==today)].empty:
                         final_check = True
                 
                 if final_check:
-                    st.error("⛔ مسجل مسبقاً!")
+                    st.error("⛔ عذراً، تم تسجيل الدخول بالفعل!")
+                    time.sleep(2)
+                    st.rerun()
                 else:
+                    # VERROUILLAGE SESSION
+                    st.session_state["submit_lock"] = True
+                    
                     final = [today, c_user, c_pin, c_grp] + [row.get(h, "لا") for h in EXPECTED_HEADERS[4:]]
                     try:
                         sheet_data.append_row(final)
@@ -293,12 +328,17 @@ else:
                             <p>المجموع الجديد: <b>{new_tot}</b> | باقي للمستوى القادم: <b>{rem}</b></p>
                         </div>
                         """, unsafe_allow_html=True)
+                        
+                        # DÉVERROUILLAGE ET RECHARGEMENT
                         time.sleep(3)
+                        st.session_state["submit_lock"] = False
                         st.rerun()
-                    except Exception as e: st.error(f"Erreur: {e}")
+                        
+                    except Exception as e: 
+                        st.session_state["submit_lock"] = False
+                        st.error(f"Erreur: {e}")
 
     with t2:
-        # Ici grp_df est maintenant garanti d'être défini
         if not grp_df.empty:
             bd = grp_df.groupby(['الاسم', 'الرمز_الشخصي'])['Score'].sum().reset_index().sort_values('Score', ascending=False)
             bd['المستوى'] = bd['Score'].apply(get_level)
