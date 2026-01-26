@@ -137,7 +137,6 @@ daily_quote_data = random.choice(MOTIVATIONAL_QUOTES)
 GROUPS_CONFIG = {
     "مجموعة الفردوس": "Firdaws@786!Top",
     "مجموعة الريان": "Rayyan#2025$Win",
-    "مجموعة الفجر": "Fajr@Simple22",  # المجموعة المبسطة
     "الإدارة": "Admin@MasterKey99!"
 }
 
@@ -256,7 +255,7 @@ def calculate_score(row):
         if safe_str(row.get(chk)) == 'نعم': score += 3
     if safe_str(row.get('سورة_الملك')) == 'نعم': score += 5
     
-    # 3. القرآن
+    # 3. القرآن (نظام الاختيار والنقاط)
     quran_val = safe_str(row.get('القرآن'))
     quran_points = {
         "ثمن": 2, 
@@ -267,7 +266,7 @@ def calculate_score(row):
     }
     score += quran_points.get(quran_val, 0)
     
-    # 4. قيام الليل
+    # 4. قيام الليل (نظام الاختيار والنقاط)
     qiyam_val = safe_str(row.get('قيام'))
     qiyam_points = {
         "ركعتان": 3, 
@@ -370,7 +369,7 @@ with col_h2:
         st.session_state["authenticated"] = False
         st.rerun()
 
-# الاقتباس اليومي
+# الاقتباس اليومي (مع المصدر)
 st.markdown(f"""
 <div class="quote-box">
     <div class="quote-text">{daily_quote_data['text']}</div>
@@ -403,20 +402,13 @@ with tab1:
         st.success("🕌 **يوم الجمعة!** لا تنسَ سورة الكهف والصلاة على النبي.")
 
     with st.form("entry_form"):
-        # القيم الافتراضية
-        inputs = {}
-        inputs['fasting'] = False
-        inputs['book_read'] = False
-        inputs['family'] = False
-        inputs['majlis_tadarus'] = False
-        inputs['taahod'] = False
-        inputs['qiyam'] = "0" # القيمة الافتراضية للقيام إذا كان مخفياً
-
-        # الصلوات (للجميع)
+        
+        # الصلوات
         with st.expander("🕌 الصلوات المفروضة", expanded=True):
             c1, c2, c3 = st.columns(3)
             with c1:
                 st.caption("🌌 **الفجر**")
+                inputs = {}
                 inputs['fs'] = st.selectbox("الفجر", ["جماعة (مسجد)", "في الوقت (بيت)", "قضاء/فاتت"], key="fs", label_visibility="collapsed")
                 inputs['fsn'] = st.checkbox("السنة", key="fsn")
             with c2:
@@ -442,8 +434,8 @@ with tab1:
                 st.markdown("<br>", unsafe_allow_html=True)
                 inputs['duha'] = st.checkbox("صلاة الضحى", key="duha")
 
-        # الروحانيات (للجميع)
-        with st.expander("📖 الروحانيات (القرآن والأذكار)", expanded=False):
+        # الروحانيات (عودة لنظام القائمة Selectbox)
+        with st.expander("📖 الروحانيات (القرآن والقيام)", expanded=False):
             col_z1, col_z2 = st.columns(2)
             with col_z1:
                 st.markdown("**📿 الأذكار**")
@@ -453,16 +445,11 @@ with tab1:
                 inputs['az_s'] = st.checkbox("النوم")
                 inputs['mulk'] = st.checkbox("سورة الملك")
             with col_z2:
-                st.markdown("**🌙 القرآن**")
+                st.markdown("**🌙 القرآن والقيام**")
+                # ⚠️ خيارات متعددة (Selectbox)
+                inputs['qiyam'] = st.selectbox("قيام الليل", options=["0", "ركعتان", "4 ركعات", "6 ركعات", "8 ركعات"])
                 inputs['quran'] = st.selectbox("الورد القرآني", options=["0", "ثمن", "ربع", "نصف", "حزب", "حزبين"])
                 
-                # ⚠️ إخفاء "القيام" لمجموعة الفجر
-                if current_group != "مجموعة الفجر":
-                    st.markdown("**🌙 قيام الليل**")
-                    inputs['qiyam'] = st.selectbox("قيام الليل", options=["0", "ركعتان", "4 ركعات", "6 ركعات", "8 ركعات"])
-                else:
-                    inputs['qiyam'] = "0" # قيمة صفرية خفية لمجموعة الفجر
-
                 if is_friday:
                     st.markdown("---")
                     cf1, cf2 = st.columns(2)
@@ -471,15 +458,14 @@ with tab1:
                 else:
                     kahf = False; salat_nabi = False
 
-        # أعمال البر (⚠️ يظهر فقط إذا لم يكن من مجموعة الفجر)
-        if current_group != "مجموعة الفجر":
-            with st.expander("🌱 أعمال البر", expanded=False):
-                b1, b2, b3, b4, b5 = st.columns(5)
-                inputs['fasting'] = b1.checkbox("صيام تطوع")
-                inputs['book_read'] = b2.checkbox("قراءة كتاب")
-                inputs['family'] = b3.checkbox("بر الأسرة")
-                inputs['majlis_tadarus'] = b4.checkbox("مجلس تدارس")
-                inputs['taahod'] = b5.checkbox("التعهد")
+        # أعمال البر
+        with st.expander("🌱 أعمال البر", expanded=False):
+            b1, b2, b3, b4, b5 = st.columns(5)
+            inputs['fasting'] = b1.checkbox("صيام تطوع")
+            inputs['book_read'] = b2.checkbox("قراءة كتاب")
+            inputs['family'] = b3.checkbox("بر الأسرة")
+            inputs['majlis_tadarus'] = b4.checkbox("مجلس تدارس")
+            inputs['taahod'] = b5.checkbox("التعهد")
 
         st.markdown("<br>", unsafe_allow_html=True)
         submit = st.form_submit_button("✅ حفظ البيانات", use_container_width=True)
@@ -507,8 +493,8 @@ with tab1:
                     "نعم" if inputs['az_m'] else "لا", "نعم" if inputs['az_e'] else "لا", 
                     "نعم" if inputs['az_p'] else "لا", "نعم" if inputs['az_s'] else "لا", 
                     "نعم" if inputs['mulk'] else "لا",
-                    inputs['qiyam'], 
-                    inputs['quran'], 
+                    inputs['qiyam'], # قيمة من القائمة
+                    inputs['quran'], # قيمة من القائمة
                     "نعم" if inputs['fasting'] else "لا", 
                     "نعم" if inputs['book_read'] else "لا",
                     "نعم" if inputs['family'] else "لا", 
@@ -535,7 +521,7 @@ with tab2:
     
     target_group = current_group
     if current_group == "الإدارة":
-        target_group = st.selectbox("🔍 عرض مجموعة:", ["مجموعة الفردوس", "مجموعة الريان", "مجموعة الفجر"])
+        target_group = st.selectbox("🔍 عرض مجموعة:", ["مجموعة الفردوس", "مجموعة الريان"])
     
     if not full_df.empty:
         display_df = full_df[full_df['المجموعة'] == target_group].copy()
