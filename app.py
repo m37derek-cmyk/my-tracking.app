@@ -20,7 +20,7 @@ st.set_page_config(
 COLOR_PRIMARY = "#009688"
 COLOR_GOLD = "#FFD700"
 COLOR_RED = "#FF5252"
-COLOR_ME = "#E0F2F1"  # لون لتمييز المستخدم
+COLOR_ME = "#E0F2F1"
 
 st.markdown(f"""
 <style>
@@ -81,9 +81,6 @@ st.markdown(f"""
         width: 100%;
         font-size: 1.1em;
     }}
-    
-    /* تنسيق الجدول لتمييز الصفوف */
-    .dataframe {{ width: 100%; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -180,7 +177,7 @@ if not st.session_state["auth"]:
     st.stop()
 
 # ==========================================
-# 6. تحميل البيانات
+# 6. تحميل البيانات (مع إصلاحات هامة)
 # ==========================================
 c_user = st.session_state["user"]
 c_pin = st.session_state["pin"]
@@ -194,8 +191,15 @@ except: df = pd.DataFrame(columns=HEADERS)
 if not df.empty:
     for col in HEADERS:
         if col not in df.columns: df[col] = ""
+    
+    # ⚠️ إصلاحات البيانات (Data Cleaning)
     df['نقاط_اليوم'] = pd.to_numeric(df['نقاط_اليوم'], errors='coerce').fillna(0)
     df['DateObj'] = pd.to_datetime(df['التاريخ'], errors='coerce')
+    
+    # تنظيف النصوص (إزالة الفراغات) لضمان المطابقة
+    df['المجموعة'] = df['المجموعة'].astype(str).str.strip()
+    df['الاسم'] = df['الاسم'].astype(str).str.strip()
+    df['التاريخ'] = df['التاريخ'].astype(str).str.strip()
 
 # ==========================================
 # 7. واجهة المستخدم
@@ -231,19 +235,16 @@ else:
     my_total_score = 0
     my_rank_num = "-"
     
-    # حساب المجاميع العامة (تاريخي)
     if not df.empty:
         my_data = df[df['الاسم'] == c_user]
         my_total_score = my_data['نقاط_اليوم'].sum()
         
-        # الترتيب العام (تراكمي)
         total_scores = df.groupby('الاسم')['نقاط_اليوم'].sum().sort_values(ascending=False).reset_index()
         if c_user in total_scores['الاسم'].values:
             my_rank_num = total_scores[total_scores['الاسم'] == c_user].index[0] + 1
 
     rank_title = get_rank_title(my_total_score)
     
-    # كروت المعلومات
     c1, c2, c3 = st.columns(3)
     with c1: st.markdown(f"<div class='game-card'><h3>الرتبة</h3><div class='level-badge'>{rank_title}</div></div>", unsafe_allow_html=True)
     with c2: st.markdown(f"<div class='game-card'><h3>مجموع النقاط</h3><div class='value'>{int(my_total_score)}</div></div>", unsafe_allow_html=True)
@@ -259,6 +260,7 @@ else:
         today = datetime.now().strftime("%Y-%m-%d")
         already_done = False
         if not df.empty:
+            # ⚠️ التحقق الدقيق من الاسم والتاريخ
             check = df[(df['الاسم'] == c_user) & (df['التاريخ'] == today)]
             if not check.empty: already_done = True
             
@@ -302,61 +304,53 @@ else:
                         st.rerun()
                     except: st.error("خطأ اتصال")
 
-    # --- TAB 2: ترتيب اليوم (مع الفارق) ---
+    # --- TAB 2: ترتيب اليوم (إصلاح العرض) ---
     with tab2:
         today = datetime.now().strftime("%Y-%m-%d")
         st.markdown(f"### 📊 ترتيب المجموعة ليوم: {today}")
         
         if not df.empty:
-            daily_df = df[(df['التاريخ'] == today) & (df['المجموعة'] == c_grp)].copy()
+            # ⚠️ تصفية صارمة للتاريخ والمجموعة
+            daily_df = df[
+                (df['التاريخ'] == today) & 
+                (df['المجموعة'] == c_grp)
+            ].copy()
             
             if not daily_df.empty:
-                # ترتيب المتسابقين اليوم
+                # ترتيب حسب النقاط
                 daily_df = daily_df.sort_values('نقاط_اليوم', ascending=False).reset_index(drop=True)
                 
-                # إضافة عمود الترتيب
+                # إضافة المركز
                 daily_df['المركز'] = daily_df.index + 1
                 
-                # حساب الفارق عن المتصدر
+                # حساب الفارق
                 top_score = daily_df.iloc[0]['نقاط_اليوم']
                 daily_df['الفارق عن الأول'] = top_score - daily_df['نقاط_اليوم']
                 
-                # تجميل الجدول
+                # تجهيز الجدول للعرض
                 final_table = daily_df[['المركز', 'الاسم', 'نقاط_اليوم', 'الفارق عن الأول']]
                 
-                # 💡 تمييز المستخدم الحالي (Highlight)
-                def highlight_me(x):
-                    return ['background-color: #E0F2F1; font-weight: bold; border: 2px solid #009688' if x['الاسم'] == c_user else '' for _ in x]
-
-                st.dataframe(final_table.style.apply(highlight_me, axis=1), use_container_width=True)
-                
-                # 🚀 رسالة تحفيزية ذكية
-                my_daily_stats = daily_df[daily_df['الاسم'] == c_user]
-                if not my_daily_stats.empty:
-                    my_pos = my_daily_stats.iloc[0]['المركز']
-                    my_score = my_daily_stats.iloc[0]['نقاط_اليوم']
-                    
-                    if my_pos == 1:
-                        st.balloons()
-                        st.markdown(f"""
-                        <div style="background-color:#d4edda; padding:15px; border-radius:10px; color:#155724; text-align:center; border:2px solid #c3e6cb;">
-                            👑 <b>ما شاء الله! أنت المتصدر اليوم!</b><br>
-                            حافظ على هذا المستوى غداً.
-                        </div>
-                        """, unsafe_allow_html=True)
+                # 💡 تلوين الصف الخاص بالمستخدم
+                def highlight_row(x):
+                    # إذا كان الاسم يطابق المستخدم الحالي، لونه بالأخضر
+                    if x['الاسم'] == c_user:
+                        return ['background-color: #d4edda; color: #155724; font-weight: bold'] * len(x)
                     else:
-                        diff = int(my_daily_stats.iloc[0]['الفارق عن الأول'])
-                        st.markdown(f"""
-                        <div style="background-color:#fff3cd; padding:15px; border-radius:10px; color:#856404; text-align:center; border:2px solid #ffeeba;">
-                            ⚠️ <b>انتبه!</b> أنت في المركز <b>#{my_pos}</b>.<br>
-                            الفرق بينك وبين الأول هو <b>{diff}</b> نقطة فقط.<br>
-                            شد حيلك بكرة عشان تجيب المركز الأول! 💪
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("لم تقم بالتسجيل اليوم بعد، لذلك لا تظهر في القائمة.")
+                        return [''] * len(x)
+
+                st.dataframe(final_table.style.apply(highlight_row, axis=1), use_container_width=True)
+                
+                # رسائل التحفيز
+                my_daily = daily_df[daily_df['الاسم'] == c_user]
+                if not my_daily.empty:
+                    pos = my_daily.iloc[0]['المركز']
+                    diff = my_daily.iloc[0]['الفارق عن الأول']
+                    if pos == 1:
+                        st.success("👑 أنت المتصدر اليوم! حافظ على همتك.")
+                    else:
+                        st.warning(f"⚠️ أنت في المركز {pos}. شد حيلك، باقي لك {int(diff)} نقطة لتلحق بالأول!")
             else:
-                st.info("لم يسجل أحد نقاطه اليوم حتى الآن. كن الأول!")
+                st.info("لم يسجل أحد نقاطه اليوم حتى الآن. كن المبادر وسجل أولاً!")
         else: st.info("جاري التحميل...")
 
     # --- TAB 3: سجلي ---
